@@ -12,3 +12,4 @@ pdfplumber
 groq
 email-validator
 bcrypt==4.0.1
+jinja2
