@@ -47,20 +47,34 @@ export default function CandidateApplications() {
   return (
     <>
       <TopBar title="My Applications" />
-      <div className="page" style={{ padding: "calc(var(--topbar-height) + 12px) 16px calc(var(--nav-height) + 20px)" }}>
+      <div className="page" style={{ padding: "calc(var(--topbar-height) + 16px) 14px calc(var(--nav-height) + 24px)" }}>
 
         {/* Filter tabs */}
-        <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "4px", marginBottom: "16px" }}>
-          {FILTERS.map(f => (
-            <button key={f} onClick={() => setFilter(f)} style={{
-              flexShrink: 0, padding: "6px 14px",
-              border: `1.5px solid ${filter === f ? "var(--pink)" : "var(--border)"}`,
-              borderRadius: "999px",
-              background: filter === f ? "var(--pink-light)" : "var(--card)",
-              color: filter === f ? "var(--pink)" : "var(--muted)",
-              fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", textTransform: "capitalize",
-            }}>{f}</button>
-          ))}
+        <div style={{
+          display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "6px",
+          marginBottom: "18px",
+          /* hide scrollbar across browsers */
+          scrollbarWidth: "none", msOverflowStyle: "none",
+        }}>
+          {FILTERS.map(f => {
+            const active = filter === f;
+            return (
+              <button key={f} onClick={() => setFilter(f)} style={{
+                flexShrink: 0,
+                padding: "6px 16px",
+                border: `1.5px solid ${active ? "var(--pink)" : "var(--border)"}`,
+                borderRadius: "999px",
+                background: active ? "var(--pink-light)" : "var(--card)",
+                color: active ? "var(--pink)" : "var(--muted)",
+                fontSize: "0.78rem",
+                fontWeight: active ? 700 : 500,
+                cursor: "pointer",
+                textTransform: "capitalize",
+                letterSpacing: "0.01em",
+                transition: "border-color 0.15s, background 0.15s, color 0.15s",
+              }}>{f}</button>
+            );
+          })}
         </div>
 
         {loading ? <Spinner /> : filtered.length === 0 ? (
@@ -76,9 +90,11 @@ export default function CandidateApplications() {
             )}
           />
         ) : (
-          filtered.map(app => (
-            <AppCard key={app.application_id} app={app} navigate={navigate} />
-          ))
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {filtered.map(app => (
+              <AppCard key={app.application_id} app={app} navigate={navigate} />
+            ))}
+          </div>
         )}
       </div>
     </>
@@ -86,76 +102,110 @@ export default function CandidateApplications() {
 }
 
 function AppCard({ app, navigate }) {
-  const salary  = formatSalary(app.salary_min, app.salary_max);
-  const date    = formatDate(app.applied_at);
+  const salary     = formatSalary(app.salary_min, app.salary_max);
+  const date       = formatDate(app.applied_at);
   const isRejected = app.status === "rejected";
-  const sc = STATUS_COLORS[app.status] || STATUS_COLORS.applied;
-
-  // Step index for progress bar
-  const stepIndex = STATUS_STEPS.indexOf(app.status);
+  const sc         = STATUS_COLORS[app.status] || STATUS_COLORS.applied;
+  const stepIndex  = STATUS_STEPS.indexOf(app.status);
 
   return (
-    <div className="card" style={{ marginBottom: "12px" }}>
-      {/* Title + company */}
-      <div style={{ fontFamily: "var(--font-serif)", fontSize: "1rem", marginBottom: "3px" }}>{app.job_title}</div>
-      <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginBottom: "8px" }}>{app.company_name}</div>
+    <div className="card" style={{ borderRadius: "14px", padding: "14px 14px 12px", overflow: "hidden" }}>
+
+      {/* Header — title + status badge */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px", marginBottom: "2px" }}>
+        <div style={{
+          fontFamily: "var(--font-serif)", fontSize: "0.97rem", fontWeight: 600,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
+        }}>
+          {app.job_title}
+        </div>
+        <span style={{
+          flexShrink: 0,
+          padding: "3px 10px", borderRadius: "999px", fontSize: "0.7rem", fontWeight: 700,
+          background: sc.bg, color: sc.color, textTransform: "capitalize", letterSpacing: "0.02em",
+        }}>
+          {app.status}
+        </span>
+      </div>
+
+      {/* Company */}
+      <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "10px", fontWeight: 500 }}>
+        {app.company_name}
+      </div>
 
       {/* Tags row */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "10px" }}>
         {app.city && (
-          <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>📍 {app.city}</span>
+          <span style={{ fontSize: "0.73rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: "2px" }}>
+            📍 {app.city}
+          </span>
         )}
         {app.work_mode && (
           <span style={{
-            padding: "2px 8px", borderRadius: "999px", fontSize: "0.72rem", fontWeight: 600,
+            padding: "2px 8px", borderRadius: "999px", fontSize: "0.7rem", fontWeight: 600,
             background: "var(--bg)", border: "1px solid var(--border)", color: "var(--muted)",
           }}>{app.work_mode}</span>
         )}
         {app.job_type && (
           <span style={{
-            padding: "2px 8px", borderRadius: "999px", fontSize: "0.72rem", fontWeight: 600,
+            padding: "2px 8px", borderRadius: "999px", fontSize: "0.7rem", fontWeight: 600,
             background: "var(--bg)", border: "1px solid var(--border)", color: "var(--muted)",
           }}>{app.job_type}</span>
         )}
         {salary && (
-          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--pink)" }}>{salary}</span>
+          <span style={{ fontSize: "0.73rem", fontWeight: 700, color: "var(--pink)" }}>{salary}</span>
         )}
       </div>
 
       {/* Applied date */}
       {date && (
-        <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "12px" }}>
-          Applied on {date}
+        <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: "12px", opacity: 0.8 }}>
+          Applied {date}
         </div>
       )}
 
-      {/* Status — rejected shows badge, otherwise show step progress */}
+      {/* Divider */}
+      <div style={{ height: "1px", background: "var(--border)", marginBottom: "12px", opacity: 0.6 }} />
+
+      {/* Status — rejected banner OR step progress */}
       {isRejected ? (
-        <div style={{ marginBottom: "12px" }}>
-          <span style={{
-            padding: "4px 12px", borderRadius: "999px", fontSize: "0.75rem", fontWeight: 700,
-            background: sc.bg, color: sc.color,
-          }}>Rejected</span>
+        <div style={{
+          display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px",
+          padding: "8px 10px", borderRadius: "8px",
+          background: sc.bg,
+        }}>
+          <span style={{ fontSize: "0.9rem" }}>✕</span>
+          <span style={{ fontSize: "0.78rem", fontWeight: 700, color: sc.color }}>
+            Application not moved forward
+          </span>
         </div>
       ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: "0", marginBottom: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
           {STATUS_STEPS.map((step, i) => {
             const done    = i <= stepIndex;
             const current = i === stepIndex;
             return (
-              <div key={step} style={{ display: "flex", alignItems: "center", flex: i < STATUS_STEPS.length - 1 ? 1 : 0 }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
+              <div key={step} style={{
+                display: "flex", alignItems: "center",
+                flex: i < STATUS_STEPS.length - 1 ? 1 : 0,
+              }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
                   <div style={{
-                    width: 20, height: 20, borderRadius: "50%",
+                    width: 22, height: 22, borderRadius: "50%",
                     background: done ? "var(--green)" : "var(--bg)",
                     border: `2px solid ${done ? "var(--green)" : "var(--border)"}`,
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "0.6rem", color: "#fff", fontWeight: 700,
+                    fontSize: "0.58rem", color: "#fff", fontWeight: 800,
                     boxShadow: current ? "0 0 0 3px #e8f5e9" : "none",
+                    transition: "background 0.2s, border-color 0.2s",
                   }}>
-                    {done ? "✓" : "●"}
+                    {done ? "✓" : ""}
                   </div>
-                  <span style={{ fontSize: "0.62rem", color: done ? "var(--green)" : "var(--muted)", fontWeight: done ? 700 : 400, whiteSpace: "nowrap" }}>
+                  <span style={{
+                    fontSize: "0.6rem", fontWeight: done ? 700 : 400,
+                    color: done ? "var(--green)" : "var(--muted)",
+                    whiteSpace: "nowrap", letterSpacing: "0.01em",
+                  }}>
                     {step.charAt(0).toUpperCase() + step.slice(1)}
                   </span>
                 </div>
@@ -163,6 +213,8 @@ function AppCard({ app, navigate }) {
                   <div style={{
                     flex: 1, height: 2, marginBottom: "14px",
                     background: i < stepIndex ? "var(--green)" : "var(--border)",
+                    borderRadius: "999px",
+                    transition: "background 0.2s",
                   }} />
                 )}
               </div>
@@ -171,10 +223,19 @@ function AppCard({ app, navigate }) {
         </div>
       )}
 
-      {/* View job link */}
-      <div onClick={() => navigate(`/jobs/${app.job_id}`)} style={{
-        fontSize: "0.82rem", fontWeight: 700, color: "var(--pink)", cursor: "pointer",
-      }}>View Job →</div>
+      {/* Footer — View Job */}
+      <div style={{ borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
+        <div
+          onClick={() => navigate(`/jobs/${app.job_id}`)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: "4px",
+            fontSize: "0.8rem", fontWeight: 700, color: "var(--pink)", cursor: "pointer",
+          }}
+        >
+          View Job <span style={{ fontSize: "0.85rem" }}>→</span>
+        </div>
+      </div>
+
     </div>
   );
 }

@@ -11,8 +11,20 @@ import {
   uploadResume, uploadPhoto,
 } from "../../api/candidate";
 
-// Match actual backend SkillCreate schema
 const SKILL_LEVELS = ["beginner", "intermediate", "advanced", "expert"];
+
+/* ── tiny helpers ── */
+const sectionLabel = (text) => (
+  <div style={{
+    fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.08em",
+    textTransform: "uppercase", color: "var(--muted)", opacity: 0.7,
+    marginBottom: "10px", marginTop: "4px",
+  }}>{text}</div>
+);
+
+const Divider = () => (
+  <div style={{ height: 1, background: "var(--border)", opacity: 0.6, margin: "4px 0 16px" }} />
+);
 
 export default function CandidateProfile() {
   const { logout, user } = useAuth();
@@ -25,11 +37,8 @@ export default function CandidateProfile() {
   const [msg,      setMsg]      = useState("");
   const [tab,      setTab]      = useState("profile");
 
-  // Skill form — matches SkillCreate: skill_name, category, level
   const [newSkill, setNewSkill] = useState({ skill_name: "", category: "", level: "intermediate" });
-  // Project form — matches ProjectCreate: title, description, tech_stack, project_url
   const [newProj,  setNewProj]  = useState({ title: "", description: "", tech_stack: "", project_url: "" });
-  // Cert form — matches CertCreate: cert_name, platform, year_completed, cert_url
   const [newCert,  setNewCert]  = useState({ cert_name: "", platform: "", year_completed: "", cert_url: "" });
 
   useEffect(() => { loadAll(); }, []);
@@ -40,7 +49,6 @@ export default function CandidateProfile() {
       const [p, s, pr, c] = await Promise.all([
         getProfile(), getSkills(), getProjects(), getCertifications()
       ]);
-      // API returns data.profile (nested) for profile
       setProfile(p.data?.profile || null);
       setSkills(s.data || []);
       setProjects(pr.data || []);
@@ -52,7 +60,6 @@ export default function CandidateProfile() {
   async function saveProfile() {
     setSaving(true); setMsg("");
     try {
-      // Only send fields the backend accepts (ProfileCreate schema)
       const payload = {
         gender:              profile.gender,
         date_of_birth:       profile.date_of_birth,
@@ -80,7 +87,6 @@ export default function CandidateProfile() {
     finally { setSaving(false); }
   }
 
-  // Skills — POST expects array: [{skill_name, category, level}]
   async function handleAddSkill() {
     if (!newSkill.skill_name.trim()) return;
     try {
@@ -154,163 +160,281 @@ export default function CandidateProfile() {
 
   const displayName = user?.full_name || "Candidate";
 
+  const TABS = [
+    { key: "profile",  label: "Profile"  },
+    { key: "skills",   label: "Skills"   },
+    { key: "projects", label: "Projects" },
+    { key: "certs",    label: "Certs"    },
+  ];
+
   return (
     <>
       <TopBar title="Profile" />
-      <div className="page" style={{ padding: "calc(var(--topbar-height) + 12px) 16px calc(var(--nav-height) + 20px)" }}>
+      <div className="page" style={{ padding: "calc(var(--topbar-height) + 14px) 14px calc(var(--nav-height) + 24px)" }}>
 
-        {/* Avatar + name */}
-        <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "20px" }}>
+        {/* ── Avatar + name card ── */}
+        <div className="card" style={{
+          borderRadius: "16px", padding: "16px",
+          display: "flex", alignItems: "center", gap: "14px",
+          marginBottom: "16px",
+        }}>
+          {/* Avatar with edit button */}
           <div style={{ position: "relative", flexShrink: 0 }}>
             <img
               src={profile?.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=E8398A&color=fff`}
-              style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--border)" }}
+              style={{ width: 68, height: 68, borderRadius: "50%", objectFit: "cover", border: "2.5px solid var(--border)" }}
               onError={e => { e.target.src = `https://ui-avatars.com/api/?name=U&background=E8398A&color=fff`; }}
             />
             <label style={{
-              position: "absolute", bottom: 0, right: 0,
+              position: "absolute", bottom: 1, right: 1,
               width: 22, height: 22, borderRadius: "50%",
               background: "var(--pink)", display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", border: "2px solid #fff",
+              cursor: "pointer", border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
             }}>
-              <span style={{ color: "#fff", fontSize: "0.7rem", lineHeight: 1 }}>✎</span>
+              <span style={{ color: "#fff", fontSize: "0.65rem", lineHeight: 1 }}>✎</span>
               <input type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
             </label>
           </div>
-          <div>
-            <div style={{ fontFamily: "var(--font-serif)", fontSize: "1.1rem" }}>{displayName}</div>
-            <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+
+          {/* Name + subtitle */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontFamily: "var(--font-serif)", fontSize: "1.05rem", fontWeight: 600,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{displayName}</div>
+            <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "2px" }}>
               {profile?.current_title || profile?.education_field || "Add your details below"}
             </div>
+            {profile?.city && profile?.state && (
+              <div style={{ fontSize: "0.73rem", color: "var(--muted)", marginTop: "3px", opacity: 0.8 }}>
+                {profile.city}, {profile.state}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Tab switcher */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "4px", marginBottom: "20px" }}>
-          {["profile", "skills", "projects", "certs"].map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{
+        {/* ── Tab switcher ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "6px", marginBottom: "18px" }}>
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)} style={{
               padding: "8px 4px",
-              border: `1.5px solid ${tab === t ? "var(--pink)" : "var(--border)"}`,
-              borderRadius: "var(--radius)",
-              background: tab === t ? "var(--pink-light)" : "var(--card)",
-              color: tab === t ? "var(--pink)" : "var(--muted)",
-              fontSize: "0.72rem", fontWeight: 600, cursor: "pointer", textTransform: "capitalize",
-            }}>{t}</button>
+              border: `1.5px solid ${tab === t.key ? "var(--pink)" : "var(--border)"}`,
+              borderRadius: "10px",
+              background: tab === t.key ? "var(--pink-light)" : "var(--card)",
+              color: tab === t.key ? "var(--pink)" : "var(--muted)",
+              fontSize: "0.7rem", fontWeight: tab === t.key ? 700 : 500,
+              cursor: "pointer",
+              transition: "border-color 0.15s, background 0.15s, color 0.15s",
+            }}>
+              {t.label}
+            </button>
           ))}
         </div>
 
-        {msg && <div className={`alert ${msg.includes("!") ? "alert-success" : "alert-error"}`} style={{ marginBottom: "16px" }}>{msg}</div>}
+        {/* ── Inline message ── */}
+        {msg && (
+          <div className={`alert ${msg.includes("!") ? "alert-success" : "alert-error"}`}
+            style={{ marginBottom: "14px", borderRadius: "10px" }}>
+            {msg}
+          </div>
+        )}
 
-        {/* ── Profile tab ── */}
+        {/* ══ Profile tab ══ */}
         {tab === "profile" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
 
             {profile === null && (
-              <div className="alert alert-error">No profile found. Fill in your details and save to create one.</div>
+              <div className="alert alert-error" style={{ marginBottom: "14px", borderRadius: "10px" }}>
+                No profile found. Fill in your details and save to create one.
+              </div>
             )}
 
+            {/* Personal */}
+            {sectionLabel("Personal")}
             {[
-              { label: "Gender",         key: "gender",         type: "text",   placeholder: "Male / Female / Other" },
-              { label: "Date of Birth",  key: "date_of_birth",  type: "date" },
-              { label: "City",           key: "city",           type: "text" },
-              { label: "State",          key: "state",          type: "text" },
-              { label: "District",       key: "district",       type: "text" },
-              { label: "Pincode",        key: "pincode",        type: "text" },
-              { label: "Education Level",key: "education_level",type: "text",   placeholder: "e.g. B.Tech, MBA" },
-              { label: "Education Field",key: "education_field",type: "text",   placeholder: "e.g. Computer Science" },
-              { label: "Institution",    key: "institution",    type: "text" },
-              { label: "Passing Year",   key: "passing_year",   type: "number" },
-              { label: "Experience",     key: "experience",     type: "text",   placeholder: "e.g. 2 years, Fresher" },
-              { label: "Current Title",  key: "current_title",  type: "text",   placeholder: "e.g. Software Engineer" },
-              { label: "Industry",       key: "industry",       type: "text" },
-              { label: "Target Role",    key: "target_role",    type: "text",   placeholder: "e.g. Frontend Developer" },
-              { label: "Job Type",       key: "job_type",       type: "text",   placeholder: "full-time / part-time" },
-              { label: "Work Mode",      key: "work_mode",      type: "text",   placeholder: "remote / onsite / hybrid" },
-              { label: "Availability",   key: "availability",   type: "text",   placeholder: "Immediate / 1 month" },
-              { label: "Expected Salary Min (₹)", key: "expected_salary_min", type: "number" },
-              { label: "Expected Salary Max (₹)", key: "expected_salary_max", type: "number" },
+              { label: "Gender",        key: "gender",        type: "text", placeholder: "Male / Female / Other" },
+              { label: "Date of Birth", key: "date_of_birth", type: "date" },
             ].map(({ label, key, type, placeholder }) => (
-              <div key={key}>
+              <div key={key} style={{ marginBottom: "10px" }}>
                 <label className="label">{label}</label>
                 <input className="input" type={type} placeholder={placeholder || label}
                   value={(profile?.[key]) ?? ""}
-                  onChange={e => setProfile(p => ({ ...(p || {}), [key]: e.target.value }))}
-                />
+                  onChange={e => setProfile(p => ({ ...(p || {}), [key]: e.target.value }))} />
               </div>
             ))}
 
-            {/* Resume */}
-            <div>
-              <label className="label">Resume (PDF)</label>
+            <Divider />
+            {sectionLabel("Location")}
+            {[
+              { label: "City",     key: "city",     type: "text" },
+              { label: "District", key: "district", type: "text" },
+              { label: "State",    key: "state",    type: "text" },
+              { label: "Pincode",  key: "pincode",  type: "text" },
+            ].map(({ label, key, type }) => (
+              <div key={key} style={{ marginBottom: "10px" }}>
+                <label className="label">{label}</label>
+                <input className="input" type={type} placeholder={label}
+                  value={(profile?.[key]) ?? ""}
+                  onChange={e => setProfile(p => ({ ...(p || {}), [key]: e.target.value }))} />
+              </div>
+            ))}
+
+            <Divider />
+            {sectionLabel("Education")}
+            {[
+              { label: "Education Level", key: "education_level", type: "text", placeholder: "e.g. B.Tech, MBA" },
+              { label: "Education Field", key: "education_field", type: "text", placeholder: "e.g. Computer Science" },
+              { label: "Institution",     key: "institution",     type: "text" },
+              { label: "Passing Year",    key: "passing_year",    type: "number" },
+            ].map(({ label, key, type, placeholder }) => (
+              <div key={key} style={{ marginBottom: "10px" }}>
+                <label className="label">{label}</label>
+                <input className="input" type={type} placeholder={placeholder || label}
+                  value={(profile?.[key]) ?? ""}
+                  onChange={e => setProfile(p => ({ ...(p || {}), [key]: e.target.value }))} />
+              </div>
+            ))}
+
+            <Divider />
+            {sectionLabel("Career")}
+            {[
+              { label: "Experience",    key: "experience",    type: "text", placeholder: "e.g. 2 years, Fresher" },
+              { label: "Current Title", key: "current_title", type: "text", placeholder: "e.g. Software Engineer" },
+              { label: "Industry",      key: "industry",      type: "text" },
+              { label: "Target Role",   key: "target_role",   type: "text", placeholder: "e.g. Frontend Developer" },
+            ].map(({ label, key, type, placeholder }) => (
+              <div key={key} style={{ marginBottom: "10px" }}>
+                <label className="label">{label}</label>
+                <input className="input" type={type} placeholder={placeholder || label}
+                  value={(profile?.[key]) ?? ""}
+                  onChange={e => setProfile(p => ({ ...(p || {}), [key]: e.target.value }))} />
+              </div>
+            ))}
+
+            <Divider />
+            {sectionLabel("Preferences")}
+            {[
+              { label: "Job Type",     key: "job_type",     type: "text", placeholder: "full-time / part-time" },
+              { label: "Work Mode",    key: "work_mode",    type: "text", placeholder: "remote / onsite / hybrid" },
+              { label: "Availability", key: "availability", type: "text", placeholder: "Immediate / 1 month" },
+              { label: "Expected Salary Min (₹)", key: "expected_salary_min", type: "number" },
+              { label: "Expected Salary Max (₹)", key: "expected_salary_max", type: "number" },
+            ].map(({ label, key, type, placeholder }) => (
+              <div key={key} style={{ marginBottom: "10px" }}>
+                <label className="label">{label}</label>
+                <input className="input" type={type} placeholder={placeholder || label}
+                  value={(profile?.[key]) ?? ""}
+                  onChange={e => setProfile(p => ({ ...(p || {}), [key]: e.target.value }))} />
+              </div>
+            ))}
+
+            <Divider />
+            {sectionLabel("Resume")}
+            <div style={{ marginBottom: "16px" }}>
               {profile?.resume_url && (
                 <a href={profile.resume_url} target="_blank" rel="noreferrer"
-                  style={{ display: "block", fontSize: "0.82rem", color: "var(--pink)", marginBottom: "6px" }}>
+                  style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.82rem", color: "var(--pink)", marginBottom: "8px" }}>
                   View current resume →
                 </a>
               )}
               <input type="file" accept=".pdf" onChange={handleResumeUpload}
-                style={{ fontSize: "0.85rem", color: "var(--muted)" }} />
+                style={{ fontSize: "0.82rem", color: "var(--muted)", display: "block" }} />
             </div>
 
-            <button className="btn-primary" onClick={saveProfile} disabled={saving}>
-              {saving ? "Saving..." : "Save Profile"}
+            <button className="btn-primary" onClick={saveProfile} disabled={saving} style={{ marginBottom: "10px" }}>
+              {saving ? "Saving…" : "Save Profile"}
             </button>
 
             <button onClick={logout} style={{
-              width: "100%", padding: "12px", marginTop: "4px",
+              width: "100%", padding: "12px",
               background: "none", border: "1.5px solid var(--border)",
               borderRadius: "999px", color: "var(--red)",
-              fontWeight: 700, fontSize: "0.9rem", cursor: "pointer",
+              fontWeight: 700, fontSize: "0.88rem", cursor: "pointer",
+              letterSpacing: "0.01em",
             }}>Logout</button>
           </div>
         )}
 
-        {/* ── Skills tab ── */}
+        {/* ══ Skills tab ══ */}
         {tab === "skills" && (
           <div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "20px" }}>
-              {skills.map(s => (
-                <SkillTag key={s.id} name={`${s.skill_name}${s.level ? ` · ${s.level}` : ""}`}
-                  onRemove={() => handleDeleteSkill(s.id)} />
-              ))}
-              {skills.length === 0 && <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>No skills added yet</div>}
+            {/* Existing skills */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "20px", minHeight: "32px" }}>
+              {skills.length === 0
+                ? <div style={{ fontSize: "0.83rem", color: "var(--muted)" }}>No skills added yet</div>
+                : skills.map(s => (
+                    <SkillTag key={s.id}
+                      name={`${s.skill_name}${s.level ? ` · ${s.level}` : ""}`}
+                      onRemove={() => handleDeleteSkill(s.id)} />
+                  ))
+              }
             </div>
 
-            <label className="label">Add Skill</label>
-            <input className="input" type="text" placeholder="Skill name" style={{ marginBottom: "8px" }}
+            <div style={{ height: 1, background: "var(--border)", opacity: 0.6, marginBottom: "14px" }} />
+            {sectionLabel("Add Skill")}
+
+            <input className="input" type="text" placeholder="Skill name *" style={{ marginBottom: "8px" }}
               value={newSkill.skill_name}
               onChange={e => setNewSkill(s => ({ ...s, skill_name: e.target.value }))} />
+
             <input className="input" type="text" placeholder="Category (e.g. Programming)" style={{ marginBottom: "8px" }}
               value={newSkill.category}
               onChange={e => setNewSkill(s => ({ ...s, category: e.target.value }))} />
-            <select className="input" style={{ marginBottom: "12px" }}
+
+            <select className="input" style={{ marginBottom: "14px" }}
               value={newSkill.level}
               onChange={e => setNewSkill(s => ({ ...s, level: e.target.value }))}>
-              {SKILL_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+              {SKILL_LEVELS.map(l => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
             </select>
+
             <button className="btn-primary" onClick={handleAddSkill}>Add Skill</button>
           </div>
         )}
 
-        {/* ── Projects tab ── */}
+        {/* ══ Projects tab ══ */}
         {tab === "projects" && (
           <div>
-            {projects.map(p => (
-              <div key={p.id} className="card" style={{ marginBottom: "10px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <div style={{ fontWeight: 700 }}>{p.title}</div>
-                  <button onClick={() => handleDeleteProject(p.id)} style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: "0.8rem" }}>Remove</button>
-                </div>
-                {p.tech_stack && <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "4px" }}>{p.tech_stack}</div>}
-                {p.description && <div style={{ fontSize: "0.85rem", marginTop: "6px" }}>{p.description}</div>}
-              </div>
-            ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: projects.length ? "20px" : "0" }}>
+              {projects.map(p => (
+                <div key={p.id} className="card" style={{ borderRadius: "14px", padding: "14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                    <div style={{
+                      fontWeight: 700, fontSize: "0.9rem",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
+                    }}>{p.title}</div>
+                    <button onClick={() => handleDeleteProject(p.id)} style={{
+                      flexShrink: 0, background: "none", border: "none",
+                      color: "var(--red)", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, padding: 0,
+                    }}>Remove</button>
+                  </div>
 
-            <label className="label" style={{ marginTop: "16px", display: "block" }}>Add Project</label>
+                  {p.tech_stack && (
+                    <div style={{ fontSize: "0.75rem", color: "var(--pink)", fontWeight: 600, marginTop: "5px" }}>
+                      {p.tech_stack}
+                    </div>
+                  )}
+                  {p.description && (
+                    <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "6px", lineHeight: 1.5 }}>
+                      {p.description}
+                    </div>
+                  )}
+                  {p.project_url && (
+                    <a href={p.project_url} target="_blank" rel="noreferrer"
+                      style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "0.76rem", color: "var(--pink)", marginTop: "8px", fontWeight: 600 }}>
+                      View project →
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {projects.length > 0 && <div style={{ height: 1, background: "var(--border)", opacity: 0.6, marginBottom: "14px" }} />}
+            {sectionLabel("Add Project")}
+
             {[
-              { label: "Title *",      key: "title",       type: "text" },
-              { label: "Tech Stack",   key: "tech_stack",  type: "text", placeholder: "e.g. React, Node.js" },
-              { label: "Project URL",  key: "project_url", type: "url" },
+              { label: "Title *",     key: "title",       type: "text" },
+              { label: "Tech Stack",  key: "tech_stack",  type: "text", placeholder: "e.g. React, Node.js" },
+              { label: "Project URL", key: "project_url", type: "url" },
             ].map(({ label, key, type, placeholder }) => (
               <div key={key} style={{ marginBottom: "10px" }}>
                 <label className="label">{label}</label>
@@ -318,7 +442,8 @@ export default function CandidateProfile() {
                   value={newProj[key]} onChange={e => setNewProj(p => ({ ...p, [key]: e.target.value }))} />
               </div>
             ))}
-            <div style={{ marginBottom: "12px" }}>
+
+            <div style={{ marginBottom: "14px" }}>
               <label className="label">Description</label>
               <textarea className="input" rows={3} placeholder="Describe your project"
                 value={newProj.description} onChange={e => setNewProj(p => ({ ...p, description: e.target.value }))}
@@ -328,25 +453,48 @@ export default function CandidateProfile() {
           </div>
         )}
 
-        {/* ── Certs tab ── */}
+        {/* ══ Certs tab ══ */}
         {tab === "certs" && (
           <div>
-            {certs.map(c => (
-              <div key={c.id} className="card" style={{ marginBottom: "10px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <div style={{ fontWeight: 700 }}>{c.cert_name}</div>
-                  <button onClick={() => handleDeleteCert(c.id)} style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: "0.8rem" }}>Remove</button>
-                </div>
-                <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "4px" }}>
-                  {c.platform}{c.year_completed ? ` · ${c.year_completed}` : ""}
-                </div>
-              </div>
-            ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: certs.length ? "20px" : "0" }}>
+              {certs.map(c => (
+                <div key={c.id} className="card" style={{ borderRadius: "14px", padding: "14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                    <div style={{ fontWeight: 700, fontSize: "0.9rem", flex: 1 }}>{c.cert_name}</div>
+                    <button onClick={() => handleDeleteCert(c.id)} style={{
+                      flexShrink: 0, background: "none", border: "none",
+                      color: "var(--red)", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, padding: 0,
+                    }}>Remove</button>
+                  </div>
 
-            <label className="label" style={{ marginTop: "16px", display: "block" }}>Add Certification</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "5px" }}>
+                    {c.platform && (
+                      <span style={{
+                        padding: "2px 8px", borderRadius: "999px", fontSize: "0.7rem", fontWeight: 600,
+                        background: "var(--bg)", border: "1px solid var(--border)", color: "var(--muted)",
+                      }}>{c.platform}</span>
+                    )}
+                    {c.year_completed && (
+                      <span style={{ fontSize: "0.73rem", color: "var(--muted)" }}>{c.year_completed}</span>
+                    )}
+                  </div>
+
+                  {c.cert_url && (
+                    <a href={c.cert_url} target="_blank" rel="noreferrer"
+                      style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "0.76rem", color: "var(--pink)", marginTop: "8px", fontWeight: 600 }}>
+                      View certificate →
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {certs.length > 0 && <div style={{ height: 1, background: "var(--border)", opacity: 0.6, marginBottom: "14px" }} />}
+            {sectionLabel("Add Certification")}
+
             {[
               { label: "Certificate Name *", key: "cert_name",      type: "text" },
-              { label: "Platform/Issuer",    key: "platform",       type: "text", placeholder: "e.g. Coursera, NPTEL" },
+              { label: "Platform / Issuer",  key: "platform",       type: "text", placeholder: "e.g. Coursera, NPTEL" },
               { label: "Year Completed",     key: "year_completed", type: "number" },
               { label: "Certificate URL",    key: "cert_url",       type: "url" },
             ].map(({ label, key, type, placeholder }) => (
@@ -359,6 +507,7 @@ export default function CandidateProfile() {
             <button className="btn-primary" onClick={handleAddCert}>Add Certification</button>
           </div>
         )}
+
       </div>
     </>
   );

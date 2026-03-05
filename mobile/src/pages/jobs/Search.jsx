@@ -6,22 +6,21 @@ import Spinner    from "../../components/Spinner";
 import EmptyState from "../../components/EmptyState";
 import { searchJobs } from "../../api/jobs";
 
-const GLOBE_BTN = {
-  flexShrink: 0,
-  width: 42, height: 42,
-  background: "var(--card)",
-  border: "1.5px solid var(--border)",
-  borderRadius: "var(--radius)",
-  display: "flex", alignItems: "center", justifyContent: "center",
-  cursor: "pointer",
-};
-
 function GlobeIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-      stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/>
       <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/>
     </svg>
   );
 }
@@ -39,7 +38,6 @@ export default function Search() {
   const [total,   setTotal]   = useState(0);
   const [showFilter, setShowFilter] = useState(false);
 
-  // Filter state
   const [filters, setFilters] = useState({ job_type: "", work_mode: "", role_type: "", city: "", state: "" });
   const [applied, setApplied] = useState({});
 
@@ -88,57 +86,59 @@ export default function Search() {
     <>
       <TopBar title="Find Jobs" />
 
-      <div className="page" style={{ padding: "calc(var(--topbar-height) + 12px) 16px calc(var(--nav-height) + 20px)" }}>
+      <div className="page" style={{ padding: "calc(var(--topbar-height) + 12px) 14px calc(var(--nav-height) + 20px)" }}>
 
-        {/* Search bar + filter button */}
-        <form onSubmit={handleSearch} style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-          <input
-            className="input"
-            type="text"
-            placeholder="Search jobs, skills..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            style={{ flex: 1 }}
-          />
+        {/* Search bar */}
+        <form onSubmit={handleSearch} style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <div style={{
+            flex: 1, display: "flex", alignItems: "center",
+            background: "var(--card)", border: "1.5px solid var(--border)",
+            borderRadius: 12, overflow: "hidden", paddingLeft: 12,
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search jobs, skills..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              style={{
+                flex: 1, border: "none", outline: "none", padding: "11px 10px",
+                fontSize: "0.88rem", background: "transparent",
+                fontFamily: "var(--font-sans)", color: "var(--black)",
+              }}
+            />
+          </div>
           <button type="submit" style={{
-            padding: "0 14px",
-            background: "var(--pink)",
-            color: "#fff",
-            border: "none",
-            borderRadius: "var(--radius)",
-            cursor: "pointer",
-            fontWeight: 700,
-            fontSize: "0.85rem",
-            whiteSpace: "nowrap",
+            padding: "0 16px", background: "var(--pink)", color: "#fff",
+            border: "none", borderRadius: 12, cursor: "pointer",
+            fontWeight: 700, fontSize: "0.85rem", whiteSpace: "nowrap",
           }}>Search</button>
-          <button
-            type="button"
-            title="Job Map"
-            onClick={() => navigate("/jobs/map")}
-            style={GLOBE_BTN}
-          ><GlobeIcon /></button>
+          <button type="button" onClick={() => navigate("/jobs/map")} style={{
+            width: 44, height: 44, flexShrink: 0,
+            background: "var(--card)", border: "1.5px solid var(--border)",
+            borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", color: "var(--muted)",
+          }}><GlobeIcon /></button>
         </form>
 
-        {/* Filter chips row */}
-        <div style={{ display: "flex", gap: "8px", marginBottom: "16px", overflowX: "auto", paddingBottom: "4px" }}>
+        {/* Filter chips */}
+        <div style={{ display: "flex", gap: 7, marginBottom: 14, overflowX: "auto", paddingBottom: 2 }}>
+          {/* Filter button */}
           <button onClick={() => setShowFilter(true)} style={{
-            flexShrink: 0,
-            padding: "6px 14px",
+            flexShrink: 0, padding: "6px 12px",
             border: `1.5px solid ${activeFilterCount > 0 ? "var(--pink)" : "var(--border)"}`,
-            borderRadius: "999px",
-            background: activeFilterCount > 0 ? "var(--pink-light)" : "var(--card)",
-            color: activeFilterCount > 0 ? "var(--pink)" : "var(--muted)",
-            fontSize: "0.8rem",
-            fontWeight: 600,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "5px",
+            borderRadius: 999,
+            background: activeFilterCount > 0 ? "var(--pink)" : "var(--card)",
+            color: activeFilterCount > 0 ? "#fff" : "var(--muted)",
+            fontSize: "0.78rem", fontWeight: 600, cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 5,
           }}>
-            ⚙ Filters {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}
+            <FilterIcon />
+            Filters {activeFilterCount > 0 ? `· ${activeFilterCount}` : ""}
           </button>
 
-          {/* Quick filter chips */}
           {[
             { label: "Remote",     key: "work_mode", val: "remote" },
             { label: "Full-time",  key: "job_type",  val: "full-time" },
@@ -155,15 +155,12 @@ export default function Search() {
                 setFilters(newApplied);
                 fetchJobs({ q: query, ...newApplied });
               }} style={{
-                flexShrink: 0,
-                padding: "6px 14px",
+                flexShrink: 0, padding: "6px 13px",
                 border: `1.5px solid ${isActive ? "var(--pink)" : "var(--border)"}`,
-                borderRadius: "999px",
+                borderRadius: 999,
                 background: isActive ? "var(--pink-light)" : "var(--card)",
                 color: isActive ? "var(--pink)" : "var(--muted)",
-                fontSize: "0.8rem",
-                fontWeight: 500,
-                cursor: "pointer",
+                fontSize: "0.78rem", fontWeight: isActive ? 700 : 500, cursor: "pointer",
               }}>{chip.label}</button>
             );
           })}
@@ -171,7 +168,7 @@ export default function Search() {
 
         {/* Results count */}
         {!loading && total > 0 && (
-          <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "12px" }}>
+          <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: 10 }}>
             {total} job{total !== 1 ? "s" : ""} found
           </div>
         )}
@@ -184,12 +181,12 @@ export default function Search() {
             {jobs.map(job => <JobCard key={job.id} job={job} />)}
             {page < pages && (
               <button onClick={() => fetchJobs({ q: query, ...applied }, page + 1)} style={{
-                width: "100%", padding: "12px",
+                width: "100%", padding: "11px",
                 background: "var(--card)", border: "1.5px solid var(--border)",
-                borderRadius: "var(--radius)", color: "var(--pink)",
-                fontWeight: 700, fontSize: "0.9rem", cursor: "pointer", marginTop: "8px",
+                borderRadius: 10, color: "var(--pink)",
+                fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", marginTop: 8,
               }}>
-                {loading ? "Loading..." : "Load more"}
+                {loading ? "Loading…" : "Load more"}
               </button>
             )}
           </>
@@ -202,9 +199,9 @@ export default function Search() {
           <div className="overlay" onClick={() => setShowFilter(false)} />
           <div className="bottom-sheet">
             <div className="sheet-handle" />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-              <span style={{ fontFamily: "var(--font-serif)", fontSize: "1.1rem" }}>Filters</span>
-              <button onClick={clearFilters} style={{ background: "none", border: "none", color: "var(--pink)", fontWeight: 700, cursor: "pointer", fontSize: "0.85rem" }}>Clear all</button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <span style={{ fontFamily: "var(--font-serif)", fontSize: "1.05rem" }}>Filters</span>
+              <button onClick={clearFilters} style={{ background: "none", border: "none", color: "var(--pink)", fontWeight: 700, cursor: "pointer", fontSize: "0.82rem" }}>Clear all</button>
             </div>
 
             <FilterSection label="Job Type">
@@ -228,13 +225,12 @@ export default function Search() {
               ))}
             </FilterSection>
 
-            <div style={{ marginBottom: "16px" }}>
+            <div style={{ marginBottom: 12 }}>
               <label className="label">City</label>
               <input className="input" type="text" placeholder="e.g. Bangalore"
                 value={filters.city} onChange={e => setFilters(f => ({ ...f, city: e.target.value }))} />
             </div>
-
-            <div style={{ marginBottom: "24px" }}>
+            <div style={{ marginBottom: 22 }}>
               <label className="label">State</label>
               <input className="input" type="text" placeholder="e.g. Karnataka"
                 value={filters.state} onChange={e => setFilters(f => ({ ...f, state: e.target.value }))} />
@@ -250,9 +246,9 @@ export default function Search() {
 
 function FilterSection({ label, children }) {
   return (
-    <div style={{ marginBottom: "20px" }}>
+    <div style={{ marginBottom: 18 }}>
       <label className="label">{label}</label>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 8 }}>
         {children}
       </div>
     </div>
@@ -262,14 +258,13 @@ function FilterSection({ label, children }) {
 function FilterChip({ label, active, onClick }) {
   return (
     <button onClick={onClick} style={{
-      padding: "7px 14px",
+      padding: "6px 13px",
       border: `1.5px solid ${active ? "var(--pink)" : "var(--border)"}`,
-      borderRadius: "999px",
-      background: active ? "var(--pink-light)" : "var(--card)",
-      color: active ? "var(--pink)" : "var(--muted)",
-      fontSize: "0.82rem", fontWeight: 600,
-      cursor: "pointer", transition: "all 0.15s",
-      textTransform: "capitalize",
+      borderRadius: 999,
+      background: active ? "var(--pink)" : "var(--card)",
+      color: active ? "#fff" : "var(--muted)",
+      fontSize: "0.78rem", fontWeight: 600,
+      cursor: "pointer", textTransform: "capitalize",
     }}>{label}</button>
   );
 }

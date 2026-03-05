@@ -30,70 +30,108 @@ export default function Register() {
   }
 
   return (
-    <div className="page-no-nav" style={{ minHeight: "100vh", background: "var(--bg)", padding: "24px 20px 48px" }}>
-      <div style={{ textAlign: "center", marginBottom: "28px", paddingTop: "16px" }}>
-        <div style={{ fontFamily: "var(--font-serif)", fontSize: "2rem" }}>
+    <div className="page-no-nav" style={{
+      minHeight: "100vh", background: "var(--bg)",
+      padding: "24px 20px 48px",
+    }}>
+
+      {/* Logo */}
+      <div style={{ textAlign: "center", marginBottom: "24px", paddingTop: "16px" }}>
+        <div style={{ fontFamily: "var(--font-serif)", fontSize: "2rem", letterSpacing: "-0.5px" }}>
           Job<span style={{ color: "var(--pink)" }}>Portal</span>
         </div>
-        <div style={{ fontSize: "0.88rem", color: "var(--muted)", marginTop: "4px" }}>Join thousands finding their next role</div>
+        <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "5px", letterSpacing: "0.01em" }}>
+          Join thousands finding their next role
+        </div>
       </div>
 
-      <div className="card" style={{ borderRadius: "16px", padding: "24px" }}>
-        <h2 style={{ fontFamily: "var(--font-serif)", fontSize: "1.4rem", marginBottom: "20px" }}>Create account</h2>
+      {/* Card */}
+      <div className="card" style={{ borderRadius: "18px", padding: "24px 22px" }}>
 
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={{ fontFamily: "var(--font-serif)", fontSize: "1.35rem", marginBottom: "3px" }}>
+            Create account
+          </h2>
+          <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>Pick your role to get started</div>
+        </div>
+
+        {/* Role selector */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "20px" }}>
           {[
-            { value: "candidate", label: "🎓 Job Seeker" },
-            { value: "hr",        label: "🏢 Hire Talent" },
+            { value: "candidate", label: "Job Seeker",  icon: "/candidate.png" },
+            { value: "hr",        label: "Hire Talent", icon: "/hr.png"        },
           ].map(tab => (
             <button key={tab.value} type="button" onClick={() => setRole(tab.value)} style={{
-              padding: "12px",
+              padding: "11px 8px",
               border: `1.5px solid ${role === tab.value ? "var(--pink)" : "var(--border)"}`,
-              borderRadius: "var(--radius)",
+              borderRadius: "10px",
               background: role === tab.value ? "var(--pink-light)" : "var(--card)",
               color: role === tab.value ? "var(--pink)" : "var(--muted)",
-              fontFamily: "var(--font-sans)", fontSize: "0.88rem", fontWeight: 600,
-              cursor: "pointer", transition: "all 0.15s",
+              fontSize: "0.84rem", fontWeight: role === tab.value ? 700 : 500,
+              cursor: "pointer", transition: "border-color 0.15s, background 0.15s, color 0.15s",
+              letterSpacing: "0.01em",
+              display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: "7px",
             }}>
+              <img src={tab.icon} alt="" style={{ width: 20, height: 20, objectFit: "contain" }} />
               {tab.label}
             </button>
           ))}
         </div>
 
+        {/* HR notice */}
         {role === "hr" && (
-          <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: "var(--radius)", padding: "10px 12px", fontSize: "0.8rem", color: "#d97706", marginBottom: "16px" }}>
+          <div style={{
+            background: "#fffbeb", border: "1px solid #fcd34d",
+            borderRadius: "10px", padding: "10px 13px",
+            fontSize: "0.78rem", color: "#d97706", marginBottom: "16px",
+            lineHeight: 1.5,
+          }}>
             ⚠️ HR must register with a <strong>company email</strong>. Gmail and personal emails are not accepted.
           </div>
         )}
 
-        {error   && <div className="alert alert-error">{error}</div>}
-        {success && <div className="alert alert-success">Account created! Redirecting to login...</div>}
+        {error   && <div className="alert alert-error"   style={{ marginBottom: "14px", borderRadius: "10px" }}>{error}</div>}
+        {success && <div className="alert alert-success" style={{ marginBottom: "14px", borderRadius: "10px" }}>Account created! Redirecting to login…</div>}
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "14px" }}>
+          <div style={{ marginBottom: "12px" }}>
             <label className="label">Full Name</label>
-            <input className="input" type="text" placeholder="Your full name" value={fullName} onChange={e => setFullName(e.target.value)} required />
+            <input className="input" type="text" placeholder="Your full name"
+              value={fullName} onChange={e => setFullName(e.target.value)} required />
           </div>
-          <div style={{ marginBottom: "14px" }}>
+
+          <div style={{ marginBottom: "12px" }}>
             <label className="label">Email</label>
-            <input className="input" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+            <input className="input" type="email" placeholder="you@example.com"
+              value={email} onChange={e => setEmail(e.target.value)}
+              required autoComplete="email" />
           </div>
-          <div style={{ marginBottom: "14px" }}>
+
+          <div style={{ marginBottom: "12px" }}>
             <label className="label">Phone</label>
-            <input className="input" type="tel" placeholder="10-digit number" maxLength={10} value={phone} onChange={e => setPhone(e.target.value)} required />
+            <input className="input" type="tel" placeholder="10-digit number"
+              maxLength={10} value={phone} onChange={e => setPhone(e.target.value)} required />
           </div>
-          <div style={{ marginBottom: "20px" }}>
+
+          <div style={{ marginBottom: "22px" }}>
             <label className="label">Password</label>
-            <input className="input" type="password" placeholder="Min 6 characters" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="new-password" />
+            <input className="input" type="password" placeholder="Min 6 characters"
+              value={password} onChange={e => setPassword(e.target.value)}
+              required autoComplete="new-password" />
           </div>
+
           <button className="btn-primary" type="submit" disabled={loading || success}>
-            {loading ? "Creating account..." : "Create Account"}
+            {loading ? "Creating account…" : "Create Account"}
           </button>
         </form>
 
-        <div style={{ textAlign: "center", marginTop: "20px", fontSize: "0.88rem", color: "var(--muted)" }}>
+        <div style={{
+          textAlign: "center", marginTop: "20px",
+          fontSize: "0.84rem", color: "var(--muted)",
+        }}>
           Already have an account?{" "}
-          <span onClick={() => navigate("/login")} style={{ color: "var(--pink)", fontWeight: 700, cursor: "pointer" }}>
+          <span onClick={() => navigate("/login")}
+            style={{ color: "var(--pink)", fontWeight: 700, cursor: "pointer" }}>
             Login
           </span>
         </div>

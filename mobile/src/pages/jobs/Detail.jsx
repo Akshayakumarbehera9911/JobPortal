@@ -40,17 +40,13 @@ export default function Detail() {
 
   async function handleApply() {
     if (!isLoggedIn) { navigate("/login"); return; }
-    setApplying(true);
-    setApplyErr("");
+    setApplying(true); setApplyErr("");
     try {
       await applyJob(id);
       setApplied(true);
       setApplyMsg("Application submitted successfully!");
-    } catch (e) {
-      setApplyErr(e.message);
-    } finally {
-      setApplying(false);
-    }
+    } catch (e) { setApplyErr(e.message); }
+    finally { setApplying(false); }
   }
 
   async function handleReport() {
@@ -70,11 +66,8 @@ export default function Detail() {
       setReportDone(true);
       setShowReport(false);
       setReportDesc("");
-    } catch {
-      // fail silently — report submitted
-    } finally {
-      setReporting(false);
-    }
+    } catch { }
+    finally { setReporting(false); }
   }
 
   if (loading) return (
@@ -88,13 +81,13 @@ export default function Detail() {
     <>
       <TopBar title="Job Detail" back backTo="/jobs" />
       <div className="page" style={{ padding: "60px 20px", textAlign: "center" }}>
-        <div style={{ color: "var(--muted)" }}>Job not found</div>
-        <button className="btn-outline" style={{ marginTop: "16px", width: "auto", padding: "10px 24px" }} onClick={() => navigate("/jobs")}>← Back to Jobs</button>
+        <div style={{ color: "var(--muted)", marginBottom: 16 }}>Job not found</div>
+        <button className="btn-outline" style={{ width: "auto", padding: "10px 24px" }} onClick={() => navigate("/jobs")}>← Back to Jobs</button>
       </div>
     </>
   );
 
-  const salary   = formatSalary(job.salary_min, job.salary_max, job.salary_type);
+  const salary    = formatSalary(job.salary_min, job.salary_max, job.salary_type);
   const mandatory = (job.skills || []).filter(s => s.mandatory);
   const optional  = (job.skills || []).filter(s => !s.mandatory);
   const isCandidate = isLoggedIn && role === "candidate";
@@ -103,21 +96,30 @@ export default function Detail() {
     <>
       <TopBar title={job.title} back backTo="/jobs" />
 
-      <div className="page" style={{ padding: "calc(var(--topbar-height) + 16px) 16px calc(var(--nav-height) + 20px)" }}>
+      <div className="page" style={{ padding: "calc(var(--topbar-height) + 14px) 14px calc(var(--nav-height) + 20px)" }}>
 
-        {/* Header card */}
-        <div className="card" style={{ marginBottom: "12px" }}>
-          <h1 style={{ fontFamily: "var(--font-serif)", fontSize: "1.3rem", marginBottom: "6px" }}>{job.title}</h1>
+        {/* ── Header card ── */}
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: "16px 14px", marginBottom: 10 }}>
 
-          <div style={{ fontSize: "0.88rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: "6px", marginBottom: "14px" }}>
+          {/* Company + verified */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+              {job.company?.name || "Unknown"}{job.company?.industry ? ` · ${job.company.industry}` : ""}
+            </span>
             {job.company?.is_verified && (
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)", display: "inline-block" }} />
+              <span style={{
+                fontSize: "0.6rem", color: "#1a7a4a", fontWeight: 700,
+                background: "rgba(45,158,107,.1)", padding: "2px 7px",
+                borderRadius: 999, border: "1px solid rgba(45,158,107,.2)",
+              }}>✓ Verified</span>
             )}
-            {job.company?.name || "Unknown"}{job.company?.industry ? ` · ${job.company.industry}` : ""}
           </div>
 
+          {/* Title */}
+          <h1 style={{ fontFamily: "var(--font-serif)", fontSize: "1.35rem", marginBottom: 12, lineHeight: 1.2 }}>{job.title}</h1>
+
           {/* Tags */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
             {job.work_mode  && <Tag pink>{job.work_mode}</Tag>}
             {job.job_type   && <Tag>{job.job_type}</Tag>}
             {job.role_type  && <Tag>{job.role_type}</Tag>}
@@ -125,36 +127,45 @@ export default function Detail() {
             {job.openings   && <Tag>{job.openings} opening{job.openings > 1 ? "s" : ""}</Tag>}
           </div>
 
-          {/* Salary + Apply */}
+          {/* Salary */}
           {salary && (
-            <div style={{ fontFamily: "var(--font-serif)", fontSize: "1.4rem", marginBottom: "4px" }}>{salary}</div>
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: "1.45rem", marginBottom: 6, color: "var(--black)" }}>{salary}</div>
           )}
+
+          {/* Location */}
           {job.city && (
-            <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginBottom: "16px" }}>📍 {job.city}{job.state ? `, ${job.state}` : ""}</div>
+            <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: 14, display: "flex", alignItems: "center", gap: 4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+              {job.city}{job.state ? `, ${job.state}` : ""}
+            </div>
           )}
 
           {/* Apply button */}
           {isCandidate && (
-            <>
-              <button
-                onClick={handleApply}
-                disabled={applying || applied}
-                style={{
-                  width: "100%", padding: "13px",
-                  background: applied ? "var(--green)" : "var(--pink)",
-                  color: "#fff", border: "none", borderRadius: "999px",
-                  fontWeight: 700, fontSize: "0.95rem", cursor: applied ? "default" : "pointer",
-                }}
-              >
-                {applying ? "Applying..." : applied ? "✓ Applied!" : "Apply Now"}
+            <div>
+              <button onClick={handleApply} disabled={applying || applied} style={{
+                width: "100%", padding: "12px",
+                background: applied ? "var(--green)" : applying ? "#f0b8d8" : "var(--pink)",
+                color: "#fff", border: "none", borderRadius: 10,
+                fontWeight: 700, fontSize: "0.92rem",
+                cursor: applied || applying ? "default" : "pointer",
+                transition: "background 0.2s",
+              }}>
+                {applying ? "Applying…" : applied ? "✓ Applied!" : "Apply Now"}
               </button>
-              {applyMsg && <div style={{ fontSize: "0.82rem", color: "var(--green)", textAlign: "center", marginTop: "8px" }}>{applyMsg}</div>}
-              {applyErr && <div style={{ fontSize: "0.82rem", color: "var(--red)", textAlign: "center", marginTop: "8px" }}>{applyErr}</div>}
-            </>
+              {applyMsg && <div style={{ fontSize: "0.78rem", color: "var(--green)", textAlign: "center", marginTop: 8 }}>{applyMsg}</div>}
+              {applyErr && <div style={{ fontSize: "0.78rem", color: "var(--red)", textAlign: "center", marginTop: 8 }}>{applyErr}</div>}
+            </div>
           )}
 
           {!isLoggedIn && (
-            <div style={{ background: "var(--pink-light)", border: "1px solid #f8c5e0", borderRadius: "var(--radius)", padding: "12px", textAlign: "center", fontSize: "0.85rem", color: "var(--pink)" }}>
+            <div style={{
+              background: "var(--pink-light)", border: "1px solid #f8c5e0",
+              borderRadius: 10, padding: "12px", textAlign: "center",
+              fontSize: "0.85rem", color: "var(--pink)",
+            }}>
               <span onClick={() => navigate("/login")} style={{ fontWeight: 700, cursor: "pointer" }}>Login</span>
               {" "}or{" "}
               <span onClick={() => navigate("/register")} style={{ fontWeight: 700, cursor: "pointer" }}>Register</span>
@@ -163,61 +174,65 @@ export default function Detail() {
           )}
         </div>
 
-        {/* Meta info */}
-        <div className="card" style={{ marginBottom: "12px" }}>
+        {/* ── Meta info ── */}
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", marginBottom: 10 }}>
           {[
-            ["Location",   job.city ? `${job.city}${job.state ? `, ${job.state}` : ""}` : "—"],
-            ["Work Mode",  job.work_mode || "—"],
+            ["Location",   job.city ? `${job.city}${job.state ? `, ${job.state}` : ""}` : null],
+            ["Work Mode",  job.work_mode || null],
             ["Experience", job.min_experience ? `${job.min_experience}+ years` : "Any"],
             ["Education",  job.education_required || "Any"],
             ...(job.deadline ? [["Deadline", job.deadline]] : []),
-          ].map(([key, val]) => (
-            <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-              <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{key}</span>
-              <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>{val}</span>
+          ].filter(([, v]) => v).map(([key, val], i, arr) => (
+            <div key={key} style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "10px 14px",
+              borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
+            }}>
+              <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{key}</span>
+              <span style={{ fontSize: "0.82rem", fontWeight: 600, textTransform: "capitalize" }}>{val}</span>
             </div>
           ))}
         </div>
 
-        {/* Description */}
+        {/* ── Description ── */}
         {job.description && (
-          <div className="card" style={{ marginBottom: "12px" }}>
-            <div style={{ fontFamily: "var(--font-serif)", fontSize: "1rem", marginBottom: "10px" }}>About this role</div>
-            <div style={{ fontSize: "0.9rem", lineHeight: 1.8, color: "#444", whiteSpace: "pre-wrap" }}>{job.description}</div>
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px", marginBottom: 10 }}>
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: "1rem", marginBottom: 10 }}>About this role</div>
+            <div style={{ fontSize: "0.85rem", lineHeight: 1.8, color: "#444", whiteSpace: "pre-wrap" }}>{job.description}</div>
           </div>
         )}
 
-        {/* Skills */}
+        {/* ── Skills ── */}
         {(mandatory.length > 0 || optional.length > 0) && (
-          <div className="card">
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px", marginBottom: 10 }}>
             {mandatory.length > 0 && (
-              <>
-                <div style={{ fontFamily: "var(--font-serif)", fontSize: "1rem", marginBottom: "10px" }}>Required Skills</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "7px", marginBottom: optional.length ? "16px" : 0 }}>
+              <div style={{ marginBottom: optional.length ? 14 : 0 }}>
+                <div style={{ fontFamily: "var(--font-serif)", fontSize: "1rem", marginBottom: 10 }}>Required Skills</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
                   {mandatory.map(s => <SkillTag key={s.name} name={s.name} mandatory />)}
                 </div>
-              </>
+              </div>
             )}
             {optional.length > 0 && (
-              <>
-                <div style={{ fontFamily: "var(--font-serif)", fontSize: "1rem", marginBottom: "10px" }}>Nice to Have</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "7px" }}>
+              <div>
+                <div style={{ fontFamily: "var(--font-serif)", fontSize: "1rem", marginBottom: 10 }}>Nice to Have</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
                   {optional.map(s => <SkillTag key={s.name} name={s.name} />)}
                 </div>
-              </>
+              </div>
             )}
           </div>
         )}
 
-        {/* Report job */}
+        {/* ── Report ── */}
         {isLoggedIn && (
-          <div style={{ marginTop: 16, textAlign: "center" }}>
+          <div style={{ textAlign: "center", marginTop: 8, marginBottom: 4 }}>
             {reportDone ? (
-              <div style={{ fontSize: "0.78rem", color: "var(--green)" }}>✓ Report submitted. Our team will review it.</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--green)" }}>✓ Report submitted. Our team will review it.</div>
             ) : (
               <button onClick={() => setShowReport(true)} style={{
                 background: "none", border: "none", color: "var(--muted)",
-                fontSize: "0.75rem", cursor: "pointer", textDecoration: "underline",
+                fontSize: "0.72rem", cursor: "pointer", textDecoration: "underline",
               }}>Report this job</button>
             )}
           </div>
@@ -232,7 +247,7 @@ export default function Detail() {
             <div className="sheet-handle" />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <span style={{ fontFamily: "var(--font-serif)", fontSize: "1.05rem" }}>Report Job</span>
-              <button onClick={() => setShowReport(false)} style={{ background: "none", border: "none", fontSize: "1.2rem", color: "var(--muted)", cursor: "pointer" }}>×</button>
+              <button onClick={() => setShowReport(false)} style={{ background: "none", border: "none", fontSize: "1.2rem", fontWeight: 700, color: "var(--muted)", cursor: "pointer" }}>×</button>
             </div>
             <div style={{ marginBottom: 12 }}>
               <label className="label">Reason</label>
@@ -261,7 +276,7 @@ export default function Detail() {
 function Tag({ children, pink = false }) {
   return (
     <span style={{
-      fontSize: "0.75rem", padding: "4px 11px", borderRadius: "999px", fontWeight: 500,
+      fontSize: "0.73rem", padding: "4px 11px", borderRadius: 999, fontWeight: 500,
       background: pink ? "var(--pink-light)" : "var(--bg)",
       border: `1px solid ${pink ? "#f8c5e0" : "var(--border)"}`,
       color: pink ? "var(--pink)" : "var(--muted)",

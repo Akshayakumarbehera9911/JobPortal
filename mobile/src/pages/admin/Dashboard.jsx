@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import TopBar from "../../components/TopBar";
 import Spinner from "../../components/Spinner";
@@ -9,28 +9,68 @@ import {
   getReports, updateReport,
 } from "../../api/admin";
 
-/* ── Colour helpers ─────────────────────────────────────────── */
-const PINK   = "var(--pink)";
-const GREEN  = "var(--green)";
-const RED    = "var(--red)";
-const AMBER  = "#B45309";
-const BLUE   = "#3b82f6";
+const PINK  = "var(--pink)";
+const GREEN = "var(--green)";
+const RED   = "var(--red)";
+const AMBER = "#B45309";
+const BLUE  = "#3b82f6";
+
+/* ── Debounce hook ── */
+function useDebounce(value, delay = 400) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
+/* ── Confirm modal (replaces window.confirm) ── */
+function ConfirmModal({ title, message, onConfirm, onCancel, danger = true }) {
+  return (
+    <>
+      <div className="overlay" onClick={onCancel} style={{ zIndex: 200 }} />
+      <div style={{
+        position: "fixed", inset: "auto 0 0 0", zIndex: 201,
+        background: "var(--card)", borderRadius: "16px 16px 0 0",
+        padding: "24px 20px 36px",
+        boxShadow: "0 -4px 32px rgba(0,0,0,.12)",
+      }}>
+        <div style={{ fontFamily: "var(--font-serif)", fontSize: "1.1rem", marginBottom: 10 }}>{title}</div>
+        <div style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: 24, lineHeight: 1.5 }}>{message}</div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={onCancel} style={{
+            flex: 1, padding: "12px", background: "none",
+            border: "1.5px solid var(--border)", borderRadius: "999px",
+            fontWeight: 700, fontSize: "0.9rem", cursor: "pointer", color: "var(--muted)",
+          }}>Cancel</button>
+          <button onClick={onConfirm} style={{
+            flex: 1, padding: "12px",
+            background: danger ? "var(--red)" : "var(--green)",
+            border: "none", borderRadius: "999px", color: "#fff",
+            fontWeight: 700, fontSize: "0.9rem", cursor: "pointer",
+          }}>Confirm</button>
+        </div>
+      </div>
+    </>
+  );
+}
 
 function Badge({ type, label }) {
   const map = {
-    active:    { bg: "rgba(45,184,125,.15)",  color: GREEN  },
-    inactive:  { bg: "rgba(224,60,60,.15)",   color: RED    },
-    verified:  { bg: "rgba(45,184,125,.15)",  color: GREEN  },
-    unverified:{ bg: "rgba(245,158,11,.15)",  color: AMBER  },
-    open:      { bg: "rgba(224,60,60,.15)",   color: RED    },
-    resolved:  { bg: "rgba(45,184,125,.15)",  color: GREEN  },
-    reviewed:  { bg: "rgba(59,130,246,.15)",  color: BLUE   },
+    active:    { bg: "rgba(45,184,125,.15)",  color: GREEN },
+    inactive:  { bg: "rgba(224,60,60,.15)",   color: RED   },
+    verified:  { bg: "rgba(45,184,125,.15)",  color: GREEN },
+    unverified:{ bg: "rgba(245,158,11,.15)",  color: AMBER },
+    open:      { bg: "rgba(224,60,60,.15)",   color: RED   },
+    resolved:  { bg: "rgba(45,184,125,.15)",  color: GREEN },
+    reviewed:  { bg: "rgba(59,130,246,.15)",  color: BLUE  },
     dismissed: { bg: "rgba(136,136,136,.15)", color: "var(--muted)" },
-    candidate: { bg: "rgba(59,130,246,.15)",  color: BLUE   },
-    hr:        { bg: "rgba(232,57,138,.15)",  color: PINK   },
-    admin:     { bg: "rgba(245,158,11,.15)",  color: AMBER  },
+    candidate: { bg: "rgba(59,130,246,.15)",  color: BLUE  },
+    hr:        { bg: "rgba(232,57,138,.15)",  color: PINK  },
+    admin:     { bg: "rgba(245,158,11,.15)",  color: AMBER },
     closed:    { bg: "rgba(136,136,136,.15)", color: "var(--muted)" },
-    draft:     { bg: "rgba(59,130,246,.15)",  color: BLUE   },
+    draft:     { bg: "rgba(59,130,246,.15)",  color: BLUE  },
   };
   const s = map[type] || { bg: "rgba(136,136,136,.15)", color: "var(--muted)" };
   return (
@@ -51,16 +91,6 @@ function Card({ children, style }) {
   );
 }
 
-function Row({ children }) {
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "11px 14px", borderBottom: "1px solid var(--border)",
-      fontSize: "0.82rem", gap: 8,
-    }}>{children}</div>
-  );
-}
-
 function BtnSm({ onClick, color = BLUE, bg, children, danger }) {
   const bgFinal = bg || (danger ? "rgba(224,60,60,.12)" : "rgba(59,130,246,.12)");
   const clr = danger ? RED : color;
@@ -73,11 +103,34 @@ function BtnSm({ onClick, color = BLUE, bg, children, danger }) {
   );
 }
 
+/* icon keys: trash | edit | deactivate | activate | verify | unverify | close | open */
+function IconBtn({ onClick, icon, color, bg }) {
+  const p = { fill: "none", strokeWidth: 1.9, strokeLinecap: "round", strokeLinejoin: "round" };
+  const icons = {
+    trash:      <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
+    edit:       <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+    deactivate: <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" {...p}><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>,
+    activate:   <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+    verify:     <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>,
+    unverify:   <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>,
+    close:      <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>,
+    open:       <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" {...p}><polygon points="5 3 19 12 5 21 5 3"/></svg>,
+  };
+  return (
+    <button onClick={onClick} title={icon} style={{
+      width: 30, height: 30, borderRadius: 8, border: "none",
+      background: bg, color,
+      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0,
+    }}>
+      {icons[icon]}
+    </button>
+  );
+}
+
 function SearchBar({ value, onChange, placeholder }) {
   return (
-    <input
-      className="input"
-      value={value}
+    <input className="input" value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       style={{ fontSize: "0.82rem", padding: "8px 12px" }}
@@ -101,14 +154,9 @@ function FilterChips({ options, active, onSelect }) {
 }
 
 function SectionTitle({ children }) {
-  return (
-    <div style={{ fontFamily: "var(--font-serif)", fontSize: "1.1rem", marginBottom: 14 }}>
-      {children}
-    </div>
-  );
+  return <div style={{ fontFamily: "var(--font-serif)", fontSize: "1.1rem", marginBottom: 14 }}>{children}</div>;
 }
 
-/* ── Toast ── */
 function useToast() {
   const [toast, setToast] = useState(null);
   function show(msg, type = "success") {
@@ -118,7 +166,6 @@ function useToast() {
   return { toast, show };
 }
 
-/* ── Modal ── */
 function Modal({ title, onClose, children }) {
   return (
     <>
@@ -139,9 +186,6 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   TABS
-═══════════════════════════════════════════════════════════════ */
 function TabIcon({ id }) {
   const s = { width: 15, height: 15, display: "inline-block", verticalAlign: "middle", marginRight: 4 };
   const p = { fill: "none", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
@@ -154,62 +198,46 @@ function TabIcon({ id }) {
 }
 
 const TABS = [
-  { id: "overview",   label: "Overview"  },
-  { id: "users",      label: "Users"     },
-  { id: "companies",  label: "Companies" },
-  { id: "jobs",       label: "Jobs"      },
-  { id: "reports",    label: "Reports"   },
+  { id: "overview",  label: "Overview"  },
+  { id: "users",     label: "Users"     },
+  { id: "companies", label: "Companies" },
+  { id: "jobs",      label: "Jobs"      },
+  { id: "reports",   label: "Reports"   },
 ];
 
-/* ═══════════════════════════════════════════════════════════════
-   OVERVIEW TAB
-═══════════════════════════════════════════════════════════════ */
+/* ── Overview ── */
 function OverviewTab() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    getStats()
-      .then(r => setStats(r.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    getStats().then(r => setStats(r.data)).catch(() => {}).finally(() => setLoading(false));
   }, []);
-
   if (loading) return <Spinner />;
   if (!stats)  return <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Failed to load stats.</div>;
-
   const statCards = [
-    { label: "Total Users",     value: stats.total_users,        accent: BLUE  },
-    { label: "Candidates",      value: stats.total_candidates,   accent: BLUE  },
-    { label: "HR Accounts",     value: stats.total_hr,           accent: PINK  },
-    { label: "Companies",       value: stats.total_companies,    accent: AMBER },
-    { label: "Verified Cos",    value: stats.verified_companies, accent: GREEN },
-    { label: "Total Jobs",      value: stats.total_jobs,         accent: AMBER },
-    { label: "Active Jobs",     value: stats.active_jobs,        accent: GREEN },
-    { label: "Applications",    value: stats.total_applications, accent: BLUE  },
-    { label: "Open Reports",    value: stats.open_reports,       accent: RED   },
-    { label: "Inactive Users",  value: stats.inactive_users,     accent: RED   },
+    { label: "Total Users",    value: stats.total_users,        accent: BLUE  },
+    { label: "Candidates",     value: stats.total_candidates,   accent: BLUE  },
+    { label: "HR Accounts",    value: stats.total_hr,           accent: PINK  },
+    { label: "Companies",      value: stats.total_companies,    accent: AMBER },
+    { label: "Verified Cos",   value: stats.verified_companies, accent: GREEN },
+    { label: "Total Jobs",     value: stats.total_jobs,         accent: AMBER },
+    { label: "Active Jobs",    value: stats.active_jobs,        accent: GREEN },
+    { label: "Applications",   value: stats.total_applications, accent: BLUE  },
+    { label: "Open Reports",   value: stats.open_reports,       accent: RED   },
+    { label: "Inactive Users", value: stats.inactive_users,     accent: RED   },
   ];
-
   return (
     <div>
       <SectionTitle>Platform Overview</SectionTitle>
-      <div style={{
-        display: "grid", gridTemplateColumns: "1fr 1fr",
-        gap: 10, marginBottom: 8,
-      }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
         {statCards.map(sc => (
           <div key={sc.label} style={{
             background: "var(--card)", border: "1px solid var(--border)",
             borderRadius: 12, padding: "14px 16px", position: "relative", overflow: "hidden",
           }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: sc.accent }} />
-            <div style={{ fontFamily: "var(--font-serif)", fontSize: "1.7rem", lineHeight: 1 }}>
-              {sc.value ?? "—"}
-            </div>
-            <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              {sc.label}
-            </div>
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: "1.7rem", lineHeight: 1 }}>{sc.value ?? "—"}</div>
+            <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.5px" }}>{sc.label}</div>
           </div>
         ))}
       </div>
@@ -217,28 +245,30 @@ function OverviewTab() {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   USERS TAB
-═══════════════════════════════════════════════════════════════ */
+/* ── Users ── */
 function UsersTab() {
   const [users,   setUsers]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [search,  setSearch]  = useState("");
   const [filter,  setFilter]  = useState("");
   const [editing, setEditing] = useState(null);
+  const [confirm, setConfirm] = useState(null); // { user, action }
   const { toast, show } = useToast();
+
+  // Debounce search — only fires API after 400ms of no typing
+  const debouncedSearch = useDebounce(search, 400);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = {};
-      if (filter) params.role = filter;
-      if (search) params.search = search;
+      if (filter)         params.role   = filter;
+      if (debouncedSearch) params.search = debouncedSearch;
       const r = await getUsers(params);
       setUsers(r.data || []);
     } catch { show("Failed to load users", "error"); }
     finally   { setLoading(false); }
-  }, [filter, search]); // eslint-disable-line
+  }, [filter, debouncedSearch]); // eslint-disable-line
 
   useEffect(() => { load(); }, [load]);
 
@@ -251,10 +281,10 @@ function UsersTab() {
   }
 
   async function handleDelete(u) {
-    if (!window.confirm(`Remove "${u.full_name}"? This permanently deactivates their account.`)) return;
     try {
       await deleteUser(u.id);
       show("User removed");
+      setConfirm(null);
       load();
     } catch { show("Failed", "error"); }
   }
@@ -277,13 +307,12 @@ function UsersTab() {
       </div>
       <FilterChips
         options={[
-          { value: "", label: "All" },
+          { value: "",          label: "All"        },
           { value: "candidate", label: "Candidates" },
-          { value: "hr", label: "HR" },
-          { value: "admin", label: "Admin" },
+          { value: "hr",        label: "HR"         },
+          { value: "admin",     label: "Admin"      },
         ]}
-        active={filter}
-        onSelect={setFilter}
+        active={filter} onSelect={setFilter}
       />
       {loading ? <Spinner /> : (
         <Card>
@@ -294,26 +323,25 @@ function UsersTab() {
                 <div style={{ padding: "11px 14px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {u.full_name}
-                      </div>
-                      <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {u.email}
-                      </div>
+                      <div style={{ fontWeight: 600, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.full_name}</div>
+                      <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.email}</div>
                       <div style={{ display: "flex", gap: 5, marginTop: 6, flexWrap: "wrap" }}>
                         <Badge type={u.role} />
                         <Badge type={u.is_active ? "active" : "inactive"} label={u.is_active ? "Active" : "Inactive"} />
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                      <BtnSm onClick={() => setEditing(u)} color={BLUE} bg="rgba(59,130,246,.12)">Edit</BtnSm>
+                      <IconBtn onClick={() => setEditing(u)} icon="edit" color={BLUE} bg="rgba(59,130,246,.12)" />
                       {u.role !== "admin" && (
-                        <BtnSm onClick={() => handleToggle(u)} color={u.is_active ? AMBER : GREEN} bg={u.is_active ? "rgba(245,158,11,.12)" : "rgba(45,184,125,.12)"}>
-                          {u.is_active ? "Deact." : "Activ."}
-                        </BtnSm>
+                        <IconBtn
+                          onClick={() => handleToggle(u)}
+                          icon={u.is_active ? "deactivate" : "activate"}
+                          color={u.is_active ? AMBER : GREEN}
+                          bg={u.is_active ? "rgba(245,158,11,.12)" : "rgba(45,184,125,.12)"}
+                        />
                       )}
                       {u.role !== "admin" && (
-                        <BtnSm danger onClick={() => handleDelete(u)}>Delete</BtnSm>
+                        <IconBtn onClick={() => setConfirm({ type: "user", data: u })} icon="trash" color={RED} bg="rgba(224,60,60,.12)" />
                       )}
                     </div>
                   </div>
@@ -323,11 +351,13 @@ function UsersTab() {
           }
         </Card>
       )}
-      {editing && (
-        <UserEditModal
-          user={editing}
-          onClose={() => setEditing(null)}
-          onSave={handleSave}
+      {editing && <UserEditModal user={editing} onClose={() => setEditing(null)} onSave={handleSave} />}
+      {confirm?.type === "user" && (
+        <ConfirmModal
+          title="Remove User"
+          message={`Remove "${confirm.data.full_name}"? This permanently deactivates their account.`}
+          onConfirm={() => handleDelete(confirm.data)}
+          onCancel={() => setConfirm(null)}
         />
       )}
     </div>
@@ -335,88 +365,67 @@ function UsersTab() {
 }
 
 function UserEditModal({ user, onClose, onSave }) {
-  const [form, setForm] = useState({
-    full_name: user.full_name || "",
-    email:     user.email     || "",
-    role:      user.role      || "candidate",
-  });
+  const [form, setForm] = useState({ full_name: user.full_name || "", email: user.email || "", role: user.role || "candidate" });
   const [saving, setSaving] = useState(false);
-
-  async function submit() {
-    setSaving(true);
-    await onSave(user.id, form);
-    setSaving(false);
-  }
-
+  async function submit() { setSaving(true); await onSave(user.id, form); setSaving(false); }
   return (
     <Modal title={`Edit: ${user.full_name}`} onClose={onClose}>
       <div style={{ marginBottom: 12 }}>
         <label className="label">Full Name</label>
-        <input className="input" value={form.full_name}
-          onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} />
+        <input className="input" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} />
       </div>
       <div style={{ marginBottom: 12 }}>
         <label className="label">Email</label>
-        <input className="input" value={form.email}
-          onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+        <input className="input" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
       </div>
       {user.role !== "admin" && (
         <div style={{ marginBottom: 20 }}>
           <label className="label">Role</label>
-          <select className="input" value={form.role}
-            onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
+          <select className="input" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
             <option value="candidate">Candidate</option>
             <option value="hr">HR</option>
           </select>
         </div>
       )}
-      <button className="btn-primary" onClick={submit} disabled={saving}>
-        {saving ? "Saving…" : "Save Changes"}
-      </button>
+      <button className="btn-primary" onClick={submit} disabled={saving}>{saving ? "Saving…" : "Save Changes"}</button>
     </Modal>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   COMPANIES TAB
-═══════════════════════════════════════════════════════════════ */
+/* ── Companies ── */
 function CompaniesTab() {
   const [companies, setCompanies] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState("");
   const [filter,    setFilter]    = useState("");
+  const [confirm,   setConfirm]   = useState(null);
   const { toast, show } = useToast();
+
+  const debouncedSearch = useDebounce(search, 400);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = {};
-      if (search) params.search = search;
+      if (debouncedSearch)       params.search      = debouncedSearch;
       if (filter === "verified")   params.is_verified = "true";
       if (filter === "unverified") params.is_verified = "false";
       const r = await getCompanies(params);
       setCompanies(r.data || []);
     } catch { show("Failed to load", "error"); }
     finally   { setLoading(false); }
-  }, [filter, search]); // eslint-disable-line
+  }, [filter, debouncedSearch]); // eslint-disable-line
 
   useEffect(() => { load(); }, [load]);
 
   async function handleVerify(c) {
-    try {
-      await toggleVerify(c.id);
-      show(c.is_verified ? "Unverified" : "Verified ✓");
-      load();
-    } catch { show("Failed", "error"); }
+    try { await toggleVerify(c.id); show(c.is_verified ? "Unverified" : "Verified ✓"); load(); }
+    catch { show("Failed", "error"); }
   }
 
   async function handleDelete(c) {
-    if (!window.confirm(`Remove "${c.company_name}" and close all its jobs?`)) return;
-    try {
-      await deleteCompany(c.id);
-      show("Company removed");
-      load();
-    } catch { show("Failed", "error"); }
+    try { await deleteCompany(c.id); show("Company removed"); setConfirm(null); load(); }
+    catch { show("Failed", "error"); }
   }
 
   return (
@@ -428,12 +437,11 @@ function CompaniesTab() {
       </div>
       <FilterChips
         options={[
-          { value: "", label: "All" },
-          { value: "verified", label: "Verified" },
-          { value: "unverified", label: "Pending" },
+          { value: "",           label: "All"     },
+          { value: "verified",   label: "Verified" },
+          { value: "unverified", label: "Pending"  },
         ]}
-        active={filter}
-        onSelect={setFilter}
+        active={filter} onSelect={setFilter}
       />
       {loading ? <Spinner /> : (
         <Card>
@@ -444,25 +452,18 @@ function CompaniesTab() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>{c.company_name}</div>
-                    <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 2 }}>
-                      {c.industry} · {c.city}, {c.state}
-                    </div>
-                    <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 1 }}>
-                      HR: {c.hr_name} · {c.job_count} jobs
-                    </div>
-                    <div style={{ marginTop: 6 }}>
-                      <Badge type={c.is_verified ? "verified" : "unverified"} label={c.is_verified ? "Verified" : "Pending"} />
-                    </div>
+                    <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 2 }}>{c.industry} · {c.city}, {c.state}</div>
+                    <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 1 }}>HR: {c.hr_name} · {c.job_count} jobs</div>
+                    <div style={{ marginTop: 6 }}><Badge type={c.is_verified ? "verified" : "unverified"} label={c.is_verified ? "Verified" : "Pending"} /></div>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
-                    <BtnSm
+                    <IconBtn
                       onClick={() => handleVerify(c)}
+                      icon={c.is_verified ? "unverify" : "verify"}
                       color={c.is_verified ? AMBER : GREEN}
                       bg={c.is_verified ? "rgba(245,158,11,.12)" : "rgba(45,184,125,.12)"}
-                    >
-                      {c.is_verified ? "Unverify" : "Verify"}
-                    </BtnSm>
-                    <BtnSm danger onClick={() => handleDelete(c)}>Remove</BtnSm>
+                    />
+                    <IconBtn onClick={() => setConfirm({ type: "company", data: c })} icon="trash" color={RED} bg="rgba(224,60,60,.12)" />
                   </div>
                 </div>
               </div>
@@ -470,13 +471,19 @@ function CompaniesTab() {
           }
         </Card>
       )}
+      {confirm?.type === "company" && (
+        <ConfirmModal
+          title="Remove Company"
+          message={`Remove "${confirm.data.company_name}" and close all its jobs?`}
+          onConfirm={() => handleDelete(confirm.data)}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   JOBS TAB
-═══════════════════════════════════════════════════════════════ */
+/* ── Jobs ── */
 function JobsTab() {
   const [jobs,    setJobs]    = useState([]);
   const [loading, setLoading] = useState(true);
@@ -484,26 +491,25 @@ function JobsTab() {
   const [filter,  setFilter]  = useState("");
   const { toast, show } = useToast();
 
+  const debouncedSearch = useDebounce(search, 400);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = {};
-      if (search) params.search = search;
-      if (filter) params.status = filter;
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (filter)          params.status = filter;
       const r = await getAdminJobs(params);
       setJobs(r.data || []);
     } catch { show("Failed to load", "error"); }
     finally   { setLoading(false); }
-  }, [filter, search]); // eslint-disable-line
+  }, [filter, debouncedSearch]); // eslint-disable-line
 
   useEffect(() => { load(); }, [load]);
 
   async function handleStatus(job, status) {
-    try {
-      await setJobStatus(job.id, status);
-      show(`Job marked as ${status}`);
-      load();
-    } catch { show("Failed", "error"); }
+    try { await setJobStatus(job.id, status); show(`Job marked as ${status}`); load(); }
+    catch { show("Failed", "error"); }
   }
 
   return (
@@ -520,8 +526,7 @@ function JobsTab() {
           { value: "closed", label: "Closed" },
           { value: "draft",  label: "Draft"  },
         ]}
-        active={filter}
-        onSelect={setFilter}
+        active={filter} onSelect={setFilter}
       />
       {loading ? <Spinner /> : (
         <Card>
@@ -531,24 +536,16 @@ function JobsTab() {
               <div key={j.id} style={{ padding: "11px 14px", borderBottom: i < jobs.length - 1 ? "1px solid var(--border)" : "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {j.title}
-                    </div>
-                    <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 2 }}>
-                      {j.company_name} · {j.city}
-                    </div>
+                    <div style={{ fontWeight: 600, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{j.title}</div>
+                    <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 2 }}>{j.company_name} · {j.city}</div>
                     <div style={{ display: "flex", gap: 5, marginTop: 6, alignItems: "center" }}>
                       <Badge type={j.status} />
                       <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>{j.applicants} applicants</span>
                     </div>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
-                    {j.status !== "active" && (
-                      <BtnSm onClick={() => handleStatus(j, "active")} color={GREEN} bg="rgba(45,184,125,.12)">Activate</BtnSm>
-                    )}
-                    {j.status !== "closed" && (
-                      <BtnSm danger onClick={() => handleStatus(j, "closed")}>Close</BtnSm>
-                    )}
+                    {j.status !== "active" && <IconBtn onClick={() => handleStatus(j, "active")} icon="open"  color={GREEN} bg="rgba(45,184,125,.12)" />}
+                    {j.status !== "closed" && <IconBtn onClick={() => handleStatus(j, "closed")} icon="close" color={RED}   bg="rgba(224,60,60,.12)"  />}
                   </div>
                 </div>
               </div>
@@ -560,14 +557,12 @@ function JobsTab() {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   REPORTS TAB
-═══════════════════════════════════════════════════════════════ */
+/* ── Reports ── */
 function ReportsTab() {
-  const [reports,  setReports]  = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [filter,   setFilter]   = useState("open");
-  const [resolving,setResolving]= useState(null);
+  const [reports,   setReports]   = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [filter,    setFilter]    = useState("open");
+  const [resolving, setResolving] = useState(null);
   const { toast, show } = useToast();
 
   const load = useCallback(async () => {
@@ -583,18 +578,11 @@ function ReportsTab() {
   useEffect(() => { load(); }, [load]);
 
   async function handleUpdate(id, status, note) {
-    try {
-      await updateReport(id, { status, admin_note: note || null });
-      show(`Report marked as ${status}`);
-      setResolving(null);
-      load();
-    } catch { show("Failed", "error"); }
+    try { await updateReport(id, { status, admin_note: note || null }); show(`Report marked as ${status}`); setResolving(null); load(); }
+    catch { show("Failed", "error"); }
   }
 
-  const TYPE_LABELS = {
-    scam_job: "Scam Job", fake_company: "Fake Company",
-    candidate_fraud: "Fraud", bug: "Bug", other: "Other",
-  };
+  const TYPE_LABELS = { scam_job: "Scam Job", fake_company: "Fake Company", candidate_fraud: "Fraud", bug: "Bug", other: "Other" };
 
   return (
     <div>
@@ -608,8 +596,7 @@ function ReportsTab() {
           { value: "dismissed", label: "Dismissed" },
           { value: "",          label: "All"        },
         ]}
-        active={filter}
-        onSelect={setFilter}
+        active={filter} onSelect={setFilter}
       />
       {loading ? <Spinner /> : (
         <div>
@@ -620,14 +607,10 @@ function ReportsTab() {
                 <div style={{ padding: "14px" }}>
                   <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
                     <Badge type={r.status} />
-                    <span style={{ fontSize: "0.7rem", fontWeight: 700, color: PINK, textTransform: "uppercase" }}>
-                      {TYPE_LABELS[r.report_type] || r.report_type}
-                    </span>
+                    <span style={{ fontSize: "0.7rem", fontWeight: 700, color: PINK, textTransform: "uppercase" }}>{TYPE_LABELS[r.report_type] || r.report_type}</span>
                   </div>
                   <div style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: 4 }}>{r.title}</div>
-                  <div style={{ fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5, marginBottom: 8 }}>
-                    {r.description}
-                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5, marginBottom: 8 }}>{r.description}</div>
                   <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: r.admin_note ? 6 : 10 }}>
                     By {r.reporter_name} ({r.reporter_role}) · {new Date(r.created_at).toLocaleDateString()}
                   </div>
@@ -653,11 +636,7 @@ function ReportsTab() {
         </div>
       )}
       {resolving && (
-        <ReportNoteModal
-          status={resolving.status}
-          onClose={() => setResolving(null)}
-          onSave={note => handleUpdate(resolving.id, resolving.status, note)}
-        />
+        <ReportNoteModal status={resolving.status} onClose={() => setResolving(null)} onSave={note => handleUpdate(resolving.id, resolving.status, note)} />
       )}
     </div>
   );
@@ -669,23 +648,14 @@ function ReportNoteModal({ status, onClose, onSave }) {
     <Modal title={`Mark as ${status}`} onClose={onClose}>
       <div style={{ marginBottom: 16 }}>
         <label className="label">Admin Note (optional)</label>
-        <textarea
-          className="input"
-          rows={3}
-          value={note}
-          onChange={e => setNote(e.target.value)}
-          placeholder="Add a note about this report…"
-          style={{ resize: "vertical" }}
-        />
+        <textarea className="input" rows={3} value={note} onChange={e => setNote(e.target.value)}
+          placeholder="Add a note about this report…" style={{ resize: "vertical" }} />
       </div>
-      <button className="btn-primary" onClick={() => onSave(note)}>
-        Confirm
-      </button>
+      <button className="btn-primary" onClick={() => onSave(note)}>Confirm</button>
     </Modal>
   );
 }
 
-/* ── Toast notification ── */
 function Toast({ msg, type }) {
   return (
     <div style={{
@@ -695,15 +665,12 @@ function Toast({ msg, type }) {
       background: type === "error" ? "#3d1a1a" : "#1a3d2b",
       color: type === "error" ? RED : GREEN,
       border: `1px solid ${type === "error" ? RED : GREEN}`,
-      boxShadow: "0 4px 20px rgba(0,0,0,.2)",
-      whiteSpace: "nowrap",
+      boxShadow: "0 4px 20px rgba(0,0,0,.2)", whiteSpace: "nowrap",
     }}>{msg}</div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   MAIN PAGE
-═══════════════════════════════════════════════════════════════ */
+/* ── Main ── */
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const { logout } = useAuth();
@@ -712,35 +679,25 @@ export default function AdminDashboard() {
     <>
       <TopBar title="Admin Panel" />
       <div className="page" style={{ padding: "calc(var(--topbar-height) + 0px) 0 calc(var(--nav-height) + 16px)" }}>
-
-        {/* Tab bar */}
         <div style={{
           display: "flex", overflowX: "auto", borderBottom: "1px solid var(--border)",
-          background: "var(--card)", paddingBottom: 0,
-          scrollbarWidth: "none", position: "sticky", top: 0, zIndex: 10,
-          alignItems: "center",
+          background: "var(--card)", scrollbarWidth: "none",
+          position: "sticky", top: 0, zIndex: 10, alignItems: "center",
         }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-              flexShrink: 0,
-              padding: "10px 14px",
-              border: "none",
+              flexShrink: 0, padding: "10px 14px", border: "none",
               borderBottom: activeTab === t.id ? `2.5px solid ${PINK}` : "2.5px solid transparent",
-              background: "none",
-              cursor: "pointer",
-              fontSize: "0.78rem",
+              background: "none", cursor: "pointer", fontSize: "0.78rem",
               fontWeight: activeTab === t.id ? 700 : 500,
               color: activeTab === t.id ? PINK : "var(--muted)",
               display: "flex", alignItems: "center", gap: 4,
             }}>
-              <TabIcon id={t.id} />
-              {t.label}
+              <TabIcon id={t.id} />{t.label}
             </button>
           ))}
-          {/* Logout button pinned to end */}
           <button onClick={logout} style={{
-            flexShrink: 0, marginLeft: "auto",
-            padding: "10px 14px",
+            flexShrink: 0, marginLeft: "auto", padding: "10px 14px",
             border: "none", borderBottom: "2.5px solid transparent",
             background: "none", cursor: "pointer",
             fontSize: "0.78rem", fontWeight: 500, color: RED,
@@ -752,8 +709,6 @@ export default function AdminDashboard() {
             Logout
           </button>
         </div>
-
-        {/* Tab content */}
         <div style={{ padding: "16px 16px 0" }}>
           {activeTab === "overview"  && <OverviewTab />}
           {activeTab === "users"     && <UsersTab />}
