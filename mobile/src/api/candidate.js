@@ -22,3 +22,4 @@ export const uploadResume      = (formData) => apiUpload("/candidate/resume", fo
 export const uploadPhoto       = (formData) => apiUpload("/candidate/photo", formData);
 // Correct pipeline route (not /candidate/run-pipeline)
 export const runPipeline       = () => apiFetch("/scoring/calculate", { method: "POST" });
+export const deletePhoto = () => apiFetch("/candidate/photo/remove", { method: "POST" });

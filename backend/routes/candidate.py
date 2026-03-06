@@ -489,3 +489,37 @@ def get_my_applications(current_user: User = Depends(require_candidate), db: Ses
             "applied_at":     a.applied_at.isoformat() if a.applied_at else None,
         })
     return {"success": True, "data": result, "error": None}
+# ── POST /api/candidate/photo/remove (workaround for Azure blocking DELETE) ──
+@router.post("/photo/remove")
+def remove_photo(current_user: User = Depends(require_candidate), db: Session = Depends(get_db)):
+    profile = db.query(CandidateProfile).filter_by(user_id=current_user.id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    try:
+        if profile.photo_url:
+            from backend.utils.cloudinary_helper import delete_file, url_to_public_id
+            public_id = url_to_public_id(profile.photo_url)
+            delete_file(public_id, resource_type="image")
+    except:
+        pass
+    profile.photo_url = None
+    db.commit()
+    return {"success": True, "data": {"message": "Photo deleted"}, "error": None}
+
+
+# ── DELETE /api/candidate/photo ─────────────────────────────────────────────
+@router.delete("/photo")
+def delete_photo(current_user: User = Depends(require_candidate), db: Session = Depends(get_db)):
+    profile = db.query(CandidateProfile).filter_by(user_id=current_user.id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    try:
+        if profile.photo_url:
+            from backend.utils.cloudinary_helper import delete_file, url_to_public_id
+            public_id = url_to_public_id(profile.photo_url)
+            delete_file(public_id, resource_type="image")
+    except:
+        pass
+    profile.photo_url = None
+    db.commit()
+    return {"success": True, "data": {"message": "Photo deleted"}, "error": None}

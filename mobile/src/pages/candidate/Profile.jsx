@@ -8,7 +8,7 @@ import {
   getSkills, addSkill, deleteSkill,
   getProjects, addProject, deleteProject,
   getCertifications, addCertification, deleteCertification,
-  uploadResume, uploadPhoto,
+  uploadResume, uploadPhoto, deletePhoto,
 } from "../../api/candidate";
 
 const SKILL_LEVELS = ["beginner", "intermediate", "advanced", "expert"];
@@ -151,6 +151,15 @@ export default function CandidateProfile() {
     } catch (e) { setMsg(e.message); }
   }
 
+  async function handleDeletePhoto() {
+    if (!window.confirm("Remove profile photo?")) return;
+    try {
+      await deletePhoto();
+      setMsg("Photo removed!");
+      loadAll();
+    } catch (e) { setMsg(e.message); }
+  }
+
   if (loading) return (
     <>
       <TopBar title="Profile" />
@@ -194,6 +203,16 @@ export default function CandidateProfile() {
               <span style={{ color: "#fff", fontSize: "0.65rem", lineHeight: 1 }}>✎</span>
               <input type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
             </label>
+            {profile?.photo_url && (
+              <button onClick={handleDeletePhoto} style={{
+                position: "absolute", top: 0, left: 0,
+                width: 18, height: 18, borderRadius: "50%",
+                background: "var(--red)", border: "2px solid #fff",
+                color: "#fff", fontSize: "0.55rem", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                padding: 0,
+              }}>✕</button>
+            )}
           </div>
 
           {/* Name + subtitle */}
