@@ -29,7 +29,7 @@ self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
 
   /* API calls → network only (never cache auth/job data) */
-  if (url.hostname.includes("onrender.com") || url.pathname.startsWith("/api")) {
+  if (url.hostname.includes("onrender.com") || url.hostname.includes("azurewebsites.net") || url.pathname.startsWith("/api")) {
     return; // let browser handle normally
   }
 
