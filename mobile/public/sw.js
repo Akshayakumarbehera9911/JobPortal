@@ -1,4 +1,4 @@
-const CACHE_NAME = "jobportal-v2";
+const CACHE_NAME = "jobportal-v3";
 const STATIC_ASSETS = [
   "/",
   "/jobs",
