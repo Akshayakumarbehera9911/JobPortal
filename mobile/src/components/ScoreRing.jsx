@@ -1,8 +1,8 @@
 export default function ScoreRing({ score, size = 80, strokeWidth = 6 }) {
-  const radius      = (size - strokeWidth) / 2;
+  const radius       = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset      = circumference * (1 - (score || 0) / 100);
-  const color       = score >= 80 ? "var(--green)" : score >= 60 ? "var(--gold)" : "var(--pink)";
+  const offset       = circumference * (1 - (score || 0) / 100);
+  const color        = score >= 80 ? "var(--green)" : score >= 60 ? "var(--gold)" : "var(--pink)";
 
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
@@ -21,15 +21,11 @@ export default function ScoreRing({ score, size = 80, strokeWidth = 6 }) {
       </svg>
       <div style={{
         position: "absolute", inset: 0,
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
+        display: "flex", alignItems: "center", justifyContent: "center",
       }}>
-        <span style={{ fontSize: size * 0.22, fontWeight: 700, color, lineHeight: 1 }}>
-          {score ?? "—"}
+        <span style={{ fontWeight: 700, color, lineHeight: 1, fontSize: size * 0.22 }}>
+          {score != null ? `${score}%` : "—"}
         </span>
-        {score != null && (
-          <span style={{ fontSize: size * 0.14, color: "var(--muted)", lineHeight: 1, marginTop: 1 }}>%</span>
-        )}
       </div>
     </div>
   );

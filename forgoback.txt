@@ -1,0 +1,2 @@
+-git reset --hard c8486d9
+git push --force
