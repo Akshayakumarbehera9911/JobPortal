@@ -10,6 +10,7 @@
 # Result cached in skill_norm_cache table forever — Groq calls approach zero over time.
 
 import logging
+import re
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -299,6 +300,45 @@ KNOWN_EXPANSIONS = {
 
 FUZZY_THRESHOLD = 70
 
+# ── Prefix decomposition ──────────────────────────────────────────────────────
+# Handles compact variants like "msexcel", "microsoftword", "apachekafka"
+# by splitting on known prefixes and re-trying KNOWN_EXPANSIONS / CANONICAL_SKILLS
+KNOWN_PREFIXES = ["microsoft", "ms", "apache", "google", "amazon", "aws"]
+
+
+def _compact(s: str) -> str:
+    """Strip spaces, hyphens, dots → compact key.
+    e.g. 'ms-excel' → 'msexcel', 'react.js' → 'reactjs'"""
+    return re.sub(r"[\s\-\.]", "", s)
+
+
+def _try_prefix_decompose(compact_key: str) -> str | None:
+    """
+    Split compact key by known prefix, then look up remainder.
+    e.g. 'msexcel'       → prefix 'ms'        + remainder 'excel'   → 'ms excel'   → 'Excel'
+         'microsoftword'  → prefix 'microsoft' + remainder 'word'    → 'ms word'    → 'Word'
+         'apachekafka'    → prefix 'apache'    + remainder 'kafka'   → 'apache kafka' → 'Kafka'
+         'mspowerbi'      → prefix 'ms'        + remainder 'powerbi' → remainder in KNOWN_EXPANSIONS → 'Power BI'
+    """
+    for prefix in KNOWN_PREFIXES:
+        if compact_key.startswith(prefix) and len(compact_key) > len(prefix):
+            remainder = compact_key[len(prefix):]          # e.g. "excel", "powerbi"
+
+            # Try "prefix remainder" spaced → e.g. "ms excel"
+            spaced = prefix + " " + remainder
+            if spaced in KNOWN_EXPANSIONS:
+                return KNOWN_EXPANSIONS[spaced]
+
+            # Try remainder alone in KNOWN_EXPANSIONS → e.g. "powerbi" → "Power BI"
+            if remainder in KNOWN_EXPANSIONS:
+                return KNOWN_EXPANSIONS[remainder]
+
+            # Try remainder exact match in canonical list
+            for c in CANONICAL_SKILLS:
+                if remainder == c.lower():
+                    return c
+    return None
+
 
 def _fuzzy_match(raw: str) -> str | None:
     """RapidFuzz match against canonical list."""
@@ -347,9 +387,12 @@ def normalize_skill(raw: str, db: Session) -> str:
     """
     Normalize a raw skill name to canonical form.
     Layer 0: DB cache
-    Layer 1: Known expansions map
+    Layer 1a: Known expansions map (direct)
+    Layer 1b: Compact key — strip dots/hyphens/spaces, retry expansions
+    Layer 1c: Exact canonical match (case-insensitive)
+    Layer 1d: Prefix decomposition — 'msexcel' → 'ms'+'excel' → 'ms excel' → 'Excel'
     Layer 2: RapidFuzz
-    Layer 3: Groq (only for unknown skills)
+    Layer 3: Groq (only for truly unknown skills)
     Always saves result to DB cache.
     """
     from backend.models.score import SkillNormCache
@@ -367,17 +410,30 @@ def normalize_skill(raw: str, db: Session) -> str:
     if cached:
         return cached.canonical
 
-    # Layer 1 — Known expansions
+    # Layer 1a — direct expansion lookup
     if cache_key in KNOWN_EXPANSIONS:
         canonical = KNOWN_EXPANSIONS[cache_key]
         _save_cache(cache_key, canonical, db)
         return canonical
 
-    # Also check exact match in canonical list (case-insensitive)
+    # Layer 1b — compact key (strip spaces, hyphens, dots) and retry
+    compact_key = _compact(cache_key)
+    if compact_key != cache_key and compact_key in KNOWN_EXPANSIONS:
+        canonical = KNOWN_EXPANSIONS[compact_key]
+        _save_cache(cache_key, canonical, db)
+        return canonical
+
+    # Layer 1c — exact canonical match (case-insensitive, also try compact)
     for c in CANONICAL_SKILLS:
-        if cache_key == c.lower():
+        if cache_key == c.lower() or compact_key == c.lower():
             _save_cache(cache_key, c, db)
             return c
+
+    # Layer 1d — prefix decomposition on compact key
+    prefix_result = _try_prefix_decompose(compact_key)
+    if prefix_result:
+        _save_cache(cache_key, prefix_result, db)
+        return prefix_result
 
     # Layer 2 — RapidFuzz
     fuzzy = _fuzzy_match(raw_clean)
@@ -387,10 +443,23 @@ def normalize_skill(raw: str, db: Session) -> str:
 
     # Layer 3 — Groq
     canonical = _groq_normalize(raw_clean)
-    # Run Groq result through rules again — Groq may return "MS Excel" which rules maps to "Excel"
+    # Post-process Groq result through rules — Groq may return "MS Excel" → "Excel"
     groq_lower = canonical.lower()
+    groq_compact = _compact(groq_lower)
     if groq_lower in KNOWN_EXPANSIONS:
         canonical = KNOWN_EXPANSIONS[groq_lower]
+    elif groq_compact in KNOWN_EXPANSIONS:
+        canonical = KNOWN_EXPANSIONS[groq_compact]
+    else:
+        prefix_of_groq = _try_prefix_decompose(groq_compact)
+        if prefix_of_groq:
+            canonical = prefix_of_groq
+        else:
+            for c in CANONICAL_SKILLS:
+                if groq_lower == c.lower():
+                    canonical = c
+                    break
+
     _save_cache(cache_key, canonical, db)
     return canonical
 
