@@ -297,7 +297,7 @@ KNOWN_EXPANSIONS = {
     "forklift operator":           "Forklift",
 }
 
-FUZZY_THRESHOLD = 80
+FUZZY_THRESHOLD = 70
 
 
 def _fuzzy_match(raw: str) -> str | None:
@@ -387,6 +387,10 @@ def normalize_skill(raw: str, db: Session) -> str:
 
     # Layer 3 — Groq
     canonical = _groq_normalize(raw_clean)
+    # Run Groq result through rules again — Groq may return "MS Excel" which rules maps to "Excel"
+    groq_lower = canonical.lower()
+    if groq_lower in KNOWN_EXPANSIONS:
+        canonical = KNOWN_EXPANSIONS[groq_lower]
     _save_cache(cache_key, canonical, db)
     return canonical
 
